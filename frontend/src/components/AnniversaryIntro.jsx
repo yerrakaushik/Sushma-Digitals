@@ -240,15 +240,25 @@ const AnniversaryIntro = ({ onFinish }) => {
             animate={{ opacity: 1 }}
             className="absolute inset-0 w-full h-full"
           >
-            <Canvas shadows dpr={[1, 2]}>
+            <Canvas 
+              shadows={window.innerWidth > 768} 
+              dpr={window.innerWidth > 768 ? [1, 2] : 1}
+              gl={{ antialias: window.innerWidth > 768 }}
+            >
               <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={50} />
               <ambientLight intensity={0.5} />
-              <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={2} castShadow />
+              <spotLight 
+                position={[10, 10, 10]} 
+                angle={0.15} 
+                penumbra={1} 
+                intensity={window.innerWidth > 768 ? 2 : 1.5} 
+                castShadow={window.innerWidth > 768} 
+              />
               <pointLight position={[-10, -10, -10]} intensity={1} />
               {/* Front Light to see the lens */}
               <directionalLight position={[0, 0, 5]} intensity={1.5} />
               
-              <Center>
+              <Center scale={window.innerWidth > 768 ? 1 : 0.8}>
                 <ThreeDCamera />
               </Center>
 

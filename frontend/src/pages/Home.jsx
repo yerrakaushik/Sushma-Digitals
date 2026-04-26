@@ -51,7 +51,7 @@ const REVIEWS = [
 
 function Counter({ value, suffix = "" }) {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const isInView = useInView(ref, { once: true, margin: window.innerWidth > 768 ? "-100px" : "-20px" });
   
   const springValue = useSpring(0, {
     stiffness: 30,
@@ -305,8 +305,8 @@ export default function Home() {
         <EditorialSection />
 
         {/* Stats Section - Reduced gap even further */}
-        <section className="pt-12 pb-24 px-6 max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-24 md:gap-16">
+        <section className="pt-24 pb-24 px-6 max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-16">
             {[
               { value: '21', label: 'Years of Excellence', icon: <Award className="w-10 h-10" /> },
               { value: '10000', label: 'Captured Moments', icon: <Camera className="w-10 h-10" />, suffix: "+" },
