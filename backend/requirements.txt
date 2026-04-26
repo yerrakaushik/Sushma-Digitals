@@ -1,0 +1,9 @@
+flask
+flask-cors
+supabase
+requests
+python-dotenv
+apscheduler
+cloudinary
+gunicorn
+gevent

@@ -1,0 +1,216 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Bebas+Neue&family=Syne:wght@400;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --gold: #C9A84C;
+    --navy: #0B1D3A;
+    --cream: #FEFDF7;
+    --obsidian: #050505;
+  }
+
+  body {
+    background-color: #FCFAF6;
+    color: var(--navy);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    /* Block general text selection for strict privacy */
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -webkit-touch-callout: none !important;
+  }
+
+  img {
+    /* Block image-specific saving methods */
+    -webkit-touch-callout: none !important;
+    -webkit-user-drag: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    pointer-events: auto;
+    /* Prevent blue highlight on tap */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent selection of any element for strict privacy */
+  * {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Allow inputs to be selectable so users can type reviews/forms */
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+  }
+
+  h1, h2, h3, .font-serif {
+    font-family: 'Playfair Display', serif;
+  }
+
+  .font-display {
+    font-family: 'Bebas Neue', cursive;
+  }
+
+  .font-syne {
+    font-family: 'Syne', sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
+  }
+  .text-shadow-gold {
+    text-shadow: 0 2px 20px rgba(201, 168, 76, 0.55);
+  }
+  .glass {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .glass-dark {
+    background: rgba(6, 14, 29, 0.55);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(201, 168, 76, 0.2);
+  }
+  .gold-border {
+    border: 1px solid rgba(201, 168, 76, 0.45);
+  }
+  
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* ─── Storytelling Specific ─── */
+  .mask-radial {
+    mask-image: radial-gradient(circle, black 40%, transparent 80%);
+  }
+  
+  .noise-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 9999;
+    mix-blend-mode: overlay;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes floatAnim {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .animate-fade-up {
+    animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .animate-float {
+    animation: floatAnim 6s ease-in-out infinite;
+  }
+}
+
+/* ─── Premium Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--obsidian);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gold);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B8963D;
+}
+
+/* ─── Gold Button Utility with Shimmer ─── */
+.btn-gold {
+  @apply relative bg-gold text-navy font-bold overflow-hidden transition-all duration-500 hover:bg-navy hover:text-gold hover:shadow-[0_0_30px_rgba(201,168,76,0.3)] active:scale-95;
+}
+
+.btn-gold::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 20%;
+  height: 200%;
+  background: rgba(255, 255, 255, 0.4);
+  transform: rotate(30deg);
+  transition: all 0.7s;
+  animation: shimmer 4s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -60%; opacity: 0; }
+  10% { opacity: 1; }
+  20% { left: 120%; opacity: 0; }
+  100% { left: 120%; opacity: 0; }
+}
+
+/* ─── Premium Button ─── */
+.btn-premium {
+  @apply relative px-8 py-4 bg-white text-black font-bold uppercase tracking-widest overflow-hidden transition-all duration-500;
+}
+.btn-premium::before {
+  content: '';
+  @apply absolute inset-0 bg-gold translate-y-full transition-transform duration-500 ease-out;
+}
+.btn-premium:hover::before {
+  @apply translate-y-0;
+}
+.btn-premium span {
+  @apply relative z-10;
+}
+
+/* ─── Custom Cursor ─── */
+.cursor-follower {
+  @apply fixed w-8 h-8 rounded-full border border-white/30 pointer-events-none z-[9999] transition-transform duration-300;
+}
+
+/* ─── Parallax Image Wrapper ─── */
+.parallax-wrap {
+  @apply relative overflow-hidden rounded-3xl;
+}
+.parallax-img {
+  @apply w-full h-full object-cover scale-110 transition-transform duration-700;
+}
+.parallax-wrap:hover .parallax-img {
+  @apply scale-100;
+}
+
+/* ─── Smooth scrolling ─── */
+html.lenis {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
