@@ -26,6 +26,13 @@ env/
 .DS_Store
 Thumbs.db
 
+# Large Media
+frontend/public/Hero section/
+*.mp4
+*.MP4
+*.mov
+*.MOV
+
 # Scratch / Temp
 scratch/
 *.mp4_original
