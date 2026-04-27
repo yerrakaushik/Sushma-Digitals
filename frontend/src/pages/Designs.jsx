@@ -173,12 +173,25 @@ export default function Designs() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-cream pt-48 pb-24 px-6">
-      <div className="max-w-5xl mx-auto space-y-12">
-        <div className="text-center space-y-4">
-          <h1 className="font-serif text-4xl md:text-6xl text-navy">Our Designs</h1>
-          <p className="text-navy/50 max-w-xl mx-auto">Browse through our work. All images are protected and for viewing only.</p>
+    <div className="font-sans bg-cream min-h-screen">
+      {/* ─── Page Header ─── */}
+      <div className="bg-navy-dark pt-52 pb-24 px-6 text-center relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40rem] h-56 bg-gold/6 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10">
+          <div className="flex items-center justify-center gap-3 mb-5">
+            <span className="block w-10 h-px bg-gold/50" />
+            <p className="text-gold text-xs font-semibold tracking-[0.3em] uppercase">Creative Works</p>
+            <span className="block w-10 h-px bg-gold/50" />
+          </div>
+          <h1 className="font-serif text-5xl md:text-6xl text-white font-bold mb-4">Our Designs</h1>
+          <p className="text-white/45 max-w-xl mx-auto text-base leading-relaxed">
+            Browse through our exclusive album designs. All images are protected and for viewing only.
+          </p>
         </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-6 py-12 space-y-12">
+
 
         {loading ? (
           <div className="flex justify-center py-20">

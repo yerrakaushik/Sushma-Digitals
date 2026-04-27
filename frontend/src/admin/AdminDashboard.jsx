@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera, Image, Youtube, LogOut,
   Upload, Trash2, Plus, CheckCircle, AlertCircle,
-  Video, Edit2, Users, Send, Phone, Calendar, FolderOpen,
+  Video, Edit2, Users, Send, Phone, Calendar, FolderOpen, Sparkles, ChevronRight
 } from 'lucide-react';
 import AlbumsTab from './AlbumsTab';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const PHOTO_CATEGORIES = ['Wedding', 'Pre-Wedding', 'Birthday', 'Corporate', 'Half Saree', 'Dhoti', 'Baby Shower'];
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 function authHeaders() {
   const token = sessionStorage.getItem('admin_token');
-  return { Authorization: `Bearer ${token}` };
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
 function Toast({ msg, type, onDone }) {
@@ -20,13 +22,24 @@ function Toast({ msg, type, onDone }) {
     const t = setTimeout(onDone, 3000);
     return () => clearTimeout(t);
   }, [onDone]);
+
   return (
-    <div className={`fixed bottom-6 right-6 z-[999] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl text-sm font-medium transition-all ${
-      type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-    }`}>
-      {type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-      {msg}
-    </div>
+    <motion.div 
+      initial={{ opacity: 0, y: 50 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      className={`fixed bottom-8 right-8 z-[999] flex items-center gap-4 px-6 py-5 rounded-[2rem] shadow-2xl ${
+        type === 'success' ? 'bg-[#0B0D11] text-white border border-gold/30' : 'bg-red-500 text-white'
+      }`}
+    >
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${type === 'success' ? 'bg-gold/10' : 'bg-white/20'}`}>
+        {type === 'success' ? <CheckCircle className="w-5 h-5 text-gold" /> : <AlertCircle className="w-5 h-5 text-white" />}
+      </div>
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">System Notification</p>
+        <p className="text-sm font-bold tracking-tight">{msg}</p>
+      </div>
+    </motion.div>
   );
 }
 
@@ -34,87 +47,234 @@ function Toast({ msg, type, onDone }) {
 function HeroTab({ toast }) {
   const [currentUrl, setCurrentUrl] = useState(null);
   const [uploading, setUploading]   = useState(false);
+  const [progress, setProgress]     = useState(0);
   const fileRef = useRef();
+  const [slideshow, setSlideshow] = useState([]);
+  const [uploadingSlide, setUploadingSlide] = useState(false);
+  const slideRef = useRef();
 
-  useEffect(() => {
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  const loadAll = () => {
     fetch(`${API_BASE}/api/hero`).then(r => r.json()).then(d => setCurrentUrl(d.video_url));
-  }, []);
+    fetch(`${API_BASE}/api/hero/slideshow`).then(r => r.json()).then(d => setSlideshow(Array.isArray(d) ? d : []));
+  };
+  useEffect(() => { loadAll(); }, []);
 
-  const handleUpload = async (e) => {
+  const handleUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
+    // Warn if over 100MB
+    if (file.size > 100 * 1024 * 1024) {
+      if (!confirm("This video is very large (over 100MB). It may take several minutes to upload depending on your internet speed. Continue?")) {
+        fileRef.current.value = '';
+        return;
+      }
+    }
+
     setUploading(true);
+    setProgress(0);
+
     const fd = new FormData();
     fd.append('video', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/api/admin/hero`, true);
+    
+    const token = sessionStorage.getItem('admin_token');
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setProgress(percent);
+      }
+    };
+
+    xhr.onload = () => {
+      setUploading(false);
+      fileRef.current.value = '';
+      if (xhr.status === 200) {
+        const data = JSON.parse(xhr.responseText);
+        setCurrentUrl(data.video_url);
+        toast('Hero video updated!', 'success');
+      } else {
+        toast('Upload failed. Try a smaller or shorter video.', 'error');
+      }
+    };
+
+    xhr.onerror = () => {
+      setUploading(false);
+      fileRef.current.value = '';
+      toast('Network error. Check your connection.', 'error');
+    };
+
+    xhr.send(fd);
+  };
+
+  const handleUploadSlide = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingSlide(true);
+    const fd = new FormData();
+    fd.append('photo', file);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/hero`, {
+      const res = await fetch(`${API_BASE}/api/admin/hero/slideshow`, {
         method: 'POST', headers: authHeaders(), body: fd,
       });
-      const data = await res.json();
-      if (res.ok) { setCurrentUrl(data.video_url); toast('Hero video updated!', 'success'); }
-      else toast(data.error || 'Upload failed', 'error');
-    } catch { toast('Upload failed — is the backend running?', 'error'); }
-    finally { setUploading(false); fileRef.current.value = ''; }
+      if (res.ok) { loadAll(); toast('Slideshow image added!', 'success'); }
+    } finally { setUploadingSlide(false); slideRef.current.value = ''; }
+  };
+
+  const handleDeleteSlide = async (id) => {
+    if (!confirm('Remove this image from slideshow?')) return;
+    await fetch(`${API_BASE}/api/admin/hero/slideshow/${id}`, { method: 'DELETE', headers: authHeaders() });
+    loadAll();
   };
 
   const handleClear = async () => {
-    if (!confirm('Remove the hero video? The slideshow will be shown instead.')) return;
+    if (!confirm('Remove hero video?')) return;
     try {
       await fetch(`${API_BASE}/api/admin/hero`, { method: 'DELETE', headers: authHeaders() });
       setCurrentUrl(null);
-      toast('Hero video cleared — slideshow restored.', 'success');
-    } catch { toast('Failed to clear hero video', 'error'); }
+      toast('Hero video removed', 'success');
+    } catch { toast('Failed', 'error'); }
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="font-serif text-2xl text-navy font-semibold mb-1">Hero Video</h2>
-        <p className="text-navy/50 text-sm">Upload a short MP4 video (≤60s) to play fullscreen in the hero section. Clear it to revert to the photo slideshow.</p>
-      </div>
+    <div className="space-y-16">
+      {/* Cinematic Video Section */}
+      <section className="bg-white border border-gold/15 rounded-[2.5rem] p-10 shadow-sm relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gold/5 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
+        
+        <h3 className="font-serif text-2xl font-bold text-navy mb-2">Cinematic Background</h3>
+        <p className="text-navy/40 text-sm max-w-xl mb-10 leading-relaxed">
+          The hero video sets the soul of your website. Upload a short, high-quality montage to instantly wow your visitors.
+        </p>
 
-      {/* Current video preview */}
-      {currentUrl ? (
-        <div className="rounded-2xl overflow-hidden border border-gold/20 bg-navy-dark relative">
-          <video src={currentUrl} controls muted className="w-full max-h-64 object-cover" />
-          <div className="absolute top-3 right-3 flex gap-2">
-            <button onClick={handleClear} className="px-3 py-1.5 bg-red-500/80 text-white text-xs rounded-full flex items-center gap-1 hover:bg-red-600 transition-colors backdrop-blur-sm">
-              <Trash2 className="w-3 h-3" /> Remove
+        {currentUrl ? (
+          <div className="relative rounded-[2rem] overflow-hidden border border-gold/20 shadow-2xl group bg-navy">
+            {isPreviewing ? (
+              <video src={currentUrl} autoPlay loop muted className="w-full aspect-video object-cover" />
+            ) : (
+              <div className="w-full aspect-video flex flex-col items-center justify-center bg-navy/50 backdrop-blur-sm">
+                 <div className="w-20 h-20 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Video className="w-8 h-8 text-gold" />
+                 </div>
+                 <button 
+                  onClick={() => setIsPreviewing(true)}
+                  className="px-8 py-3 bg-gold text-navy rounded-full text-xs font-bold uppercase tracking-widest shadow-xl hover:scale-105 transition-all"
+                 >
+                    Play Preview
+                 </button>
+              </div>
+            )}
+            <div className="absolute top-6 right-6 flex gap-3">
+              {isPreviewing && (
+                <button 
+                  onClick={() => setIsPreviewing(false)}
+                  className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full text-xs font-bold shadow-xl backdrop-blur-md transition-all"
+                >
+                  Stop Preview
+                </button>
+              )}
+              <button 
+                onClick={handleClear}
+                className="px-6 py-3 bg-red-500/90 hover:bg-red-500 text-white rounded-full text-xs font-bold shadow-xl backdrop-blur-md transition-all flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" /> Remove Video
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-gold/20 rounded-[2.5rem] bg-gold/5">
+            <div className="w-20 h-20 rounded-full bg-gold/10 flex items-center justify-center mb-6">
+              <Video className="w-8 h-8 text-gold" />
+            </div>
+            <p className="font-serif text-xl font-bold text-navy">No video active</p>
+            <p className="text-navy/40 text-sm mt-1">Website is currently using fallback slideshow</p>
+          </div>
+        )}
+
+        <div className="mt-10 pt-10 border-t border-navy/5 flex flex-col gap-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={handleUpload} />
+            <button 
+              onClick={() => fileRef.current.click()} disabled={uploading}
+              className="px-10 py-4 btn-gold rounded-full font-bold text-sm shadow-gold-sm flex items-center gap-3 disabled:opacity-50 transition-transform active:scale-95"
+            >
+              {uploading ? <span className="w-4 h-4 border-2 border-navy/30 border-t-navy rounded-full animate-spin" /> : <Upload className="w-4 h-4" />}
+              {uploading ? `Uploading ${progress}%` : 'Choose Cinematic Reel'}
             </button>
+            <div className="text-right">
+               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-navy/30 mb-1">Performance Tip</p>
+               <p className="text-xs font-bold text-navy/60">Use compressed MP4 for faster uploads</p>
+            </div>
           </div>
-          <div className="p-3 bg-navy-dark/60 backdrop-blur-sm">
-            <p className="text-white/60 text-xs truncate">{currentUrl}</p>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-2xl border-2 border-dashed border-gold/20 bg-cream p-8 text-center">
-          <Video className="w-10 h-10 text-navy/25 mx-auto mb-3" />
-          <p className="text-navy/50 text-sm">No video set — photo slideshow is active</p>
-        </div>
-      )}
 
-      {/* Upload button */}
-      <div>
-        <input ref={fileRef} type="file" accept=".mp4,.webm,.mov" className="hidden" onChange={handleUpload} />
-        <button
-          onClick={() => fileRef.current.click()}
-          disabled={uploading}
-          className="inline-flex items-center gap-2.5 px-7 py-3.5 btn-gold rounded-full text-sm shadow-gold-sm disabled:opacity-60"
-        >
-          {uploading
-            ? <span className="w-4 h-4 border-2 border-navy/30 border-t-navy rounded-full animate-spin" />
-            : <Upload className="w-4 h-4" />}
-          {uploading ? 'Uploading...' : 'Upload New Video'}
-        </button>
-        <p className="text-navy/35 text-xs mt-2">Accepted: .mp4, .webm, .mov</p>
-      </div>
+          {uploading && (
+            <div className="w-full space-y-3 animate-in fade-in slide-in-from-top-2">
+              <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-gold">
+                <span>Sending to Legacy Storage</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="h-2 w-full bg-navy/5 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  className="h-full bg-gradient-to-r from-gold/60 to-gold shadow-[0_0_10px_rgba(201,168,76,0.3)]"
+                />
+              </div>
+              <p className="text-[9px] text-navy/30 italic">Processing will begin automatically at 100%...</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Fallback Slideshow Section */}
+      <section className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-serif text-2xl font-bold text-navy">Fallback Slideshow</h3>
+            <p className="text-navy/40 text-sm">Images shown when no cinematic video is active.</p>
+          </div>
+          <input ref={slideRef} type="file" accept="image/*" className="hidden" onChange={handleUploadSlide} />
+          <button 
+            onClick={() => slideRef.current.click()} disabled={uploadingSlide}
+            className="px-8 py-3 bg-navy text-white rounded-full text-xs font-bold uppercase tracking-widest shadow-xl flex items-center gap-2"
+          >
+            {uploadingSlide ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
+            Add Image
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+          {Array.isArray(slideshow) && slideshow.map(img => (
+            <div key={img.id} className="relative aspect-square rounded-[2rem] overflow-hidden border border-gold/10 group bg-white shadow-sm">
+              <img src={img.url} className="w-full h-full object-cover" alt="" />
+              <div className="absolute inset-0 bg-navy/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <button 
+                  onClick={() => handleDeleteSlide(img.id)}
+                  className="p-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+          {slideshow.length === 0 && (
+            <div className="col-span-full py-12 text-center border-2 border-dashed border-navy/5 rounded-[2.5rem] bg-cream/10">
+               <p className="text-navy/20 italic text-sm">No slideshow images added. Using static black fallback.</p>
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
 
 // ─── Tab: Gallery ────────────────────────────────────────────────────────────
-const PHOTO_CATEGORIES = ['Wedding', 'Pre-Wedding', 'Birthday', 'Corporate'];
-
 function GalleryTab({ toast }) {
   const [photos, setPhotos]       = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -124,14 +284,14 @@ function GalleryTab({ toast }) {
   const [position, setPosition]   = useState(50);
   const fileRef = useRef();
 
-  const load = () => fetch(`${API_BASE}/api/gallery`).then(r => r.json()).then(setPhotos).catch(() => {});
+  const load = () => fetch(`${API_BASE}/api/gallery`).then(r => r.json()).then(d => setPhotos(Array.isArray(d) ? d : [])).catch(() => {});
   useEffect(() => { load(); }, []);
 
   const onFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setPreview(URL.createObjectURL(file));
-      setPosition(50); // Reset position
+      setPosition(50);
     }
   };
 
@@ -143,583 +303,587 @@ function GalleryTab({ toast }) {
     fd.append('photo', file);
     fd.append('alt', form.alt || file.name);
     fd.append('category', form.category);
-    // We could save 'position' in a field if the table had it, 
-    // but for now this helps them decide if it fits or if they should re-crop.
     try {
       const res = await fetch(`${API_BASE}/api/admin/gallery`, {
         method: 'POST', headers: authHeaders(), body: fd,
       });
-      const data = await res.json();
       if (res.ok) { 
-        load(); 
-        toast('Photo uploaded!', 'success'); 
-        setForm({ alt: '', category: 'Wedding' }); 
-        setPreview(null);
-      }
-      else toast(data.error || 'Upload failed', 'error');
-    } catch { toast('Upload failed — is backend running?', 'error'); }
+        load(); toast('Photo uploaded!', 'success'); 
+        setForm({ alt: '', category: 'Wedding' }); setPreview(null);
+      } else toast('Upload failed', 'error');
+    } catch { toast('Connection failed', 'error'); }
     finally { setUploading(false); fileRef.current.value = ''; }
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this photo?')) return;
-    await fetch(`${API_BASE}/api/admin/gallery/${id}`, { method: 'DELETE', headers: authHeaders() });
-    setPhotos(photos.filter(p => p.id !== id));
-    toast('Photo deleted', 'success');
+    try {
+      await fetch(`${API_BASE}/api/admin/gallery/${id}`, { method: 'DELETE', headers: authHeaders() });
+      setPhotos(photos.filter(p => p.id !== id));
+      toast('Photo deleted', 'success');
+    } catch { toast('Delete failed', 'error'); }
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="font-serif text-2xl text-navy font-semibold mb-1">Gallery</h2>
-        <p className="text-navy/50 text-sm">Upload photos that appear in the public Gallery page. Tag each with a category for filtering.</p>
-      </div>
-
-      {/* Upload form with Preview */}
-      <div className="bg-white border border-gold/15 rounded-3xl overflow-hidden shadow-sm">
-        <div className="p-6 border-b border-gold/10 bg-cream/50 flex items-center justify-between">
-          <h3 className="font-serif font-bold text-navy">Upload New Photo</h3>
-          {preview && (
-             <button onClick={() => { setPreview(null); fileRef.current.value=''; }} className="text-xs text-red-500 hover:underline">Clear</button>
-          )}
-        </div>
-        
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Left: Inputs */}
-          <div className="space-y-4">
-            <div>
-              <label className="text-[10px] font-bold text-navy/40 uppercase tracking-wider mb-1.5 block">Description</label>
+    <div className="space-y-10">
+      <div className="bg-white border border-gold/15 rounded-[2.5rem] p-8 shadow-sm">
+        <h3 className="font-serif text-xl font-bold text-navy mb-6">Add New Masterpiece</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <div className="space-y-6">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-navy/40 uppercase tracking-widest ml-1">Short Description</label>
               <input
-                type="text"
-                placeholder="e.g. Wedding Ceremony at Mandap"
-                value={form.alt}
-                onChange={(e) => setForm(f => ({ ...f, alt: e.target.value }))}
-                className="w-full px-4 py-3 rounded-xl border border-navy/10 bg-cream/30 text-sm text-navy focus:outline-none focus:border-gold/40 transition-all"
+                type="text" placeholder="e.g. Cinematic Wedding Moment"
+                value={form.alt} onChange={(e) => setForm(f => ({ ...f, alt: e.target.value }))}
+                className="w-full px-5 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none focus:border-gold/40 transition-all"
               />
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-navy/40 uppercase tracking-wider mb-1.5 block">Category</label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-navy/40 uppercase tracking-widest ml-1">Collection</label>
               <select
-                value={form.category}
-                onChange={(e) => setForm(f => ({ ...f, category: e.target.value }))}
-                className="w-full px-4 py-3 rounded-xl border border-navy/10 bg-cream/30 text-sm text-navy focus:outline-none focus:border-gold/40 transition-all appearance-none cursor-pointer"
+                value={form.category} onChange={(e) => setForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full px-5 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none focus:border-gold/40 transition-all cursor-pointer appearance-none"
               >
                 {PHOTO_CATEGORIES.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-navy/40 uppercase tracking-wider mb-1.5 block">How it fits (Arrangement)</label>
-              <div className="flex gap-2">
-                {['cover', 'contain'].map(f => (
-                  <button
-                    key={f}
-                    onClick={() => setFit(f)}
-                    className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg border transition-all ${
-                      fit === f ? 'bg-navy text-gold border-gold/30 shadow-md' : 'bg-white text-navy/40 border-navy/5 hover:border-gold/20'
-                    }`}
-                  >
-                    {f === 'cover' ? 'Fill Frame' : 'Show Full Image'}
-                  </button>
-                ))}
-              </div>
-            </div>
             
-            {fit === 'cover' && (
-              <div>
-                <label className="text-[10px] font-bold text-navy/40 uppercase tracking-wider mb-1.5 block">Vertical Focus (Arrangement)</label>
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] text-navy/30">Top</span>
-                  <input 
-                    type="range" 
-                    min="0" max="100" 
-                    value={position} 
-                    onChange={(e) => setPosition(parseInt(e.target.value))}
-                    className="flex-1 accent-gold h-1.5 bg-cream rounded-lg appearance-none cursor-pointer"
-                  />
-                  <span className="text-[10px] text-navy/30">Bottom</span>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
+            {!preview ? (
+              <button 
+                onClick={() => fileRef.current.click()}
+                className="w-full py-12 border-2 border-dashed border-gold/20 rounded-[2rem] bg-gold/5 flex flex-col items-center justify-center gap-3 group hover:border-gold/50 transition-all"
+              >
+                <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                  <Plus className="w-8 h-8 text-gold" />
                 </div>
-              </div>
+                <p className="text-sm font-bold text-navy">Browse High-Res Photo</p>
+              </button>
+            ) : (
+              <button 
+                onClick={handleUpload} disabled={uploading}
+                className="w-full py-5 btn-gold rounded-full font-bold text-sm shadow-gold-sm flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {uploading ? <span className="w-5 h-5 border-2 border-navy/30 border-t-navy rounded-full animate-spin" /> : <Upload className="w-5 h-5" />}
+                {uploading ? 'Processing Image...' : 'Publish to Gallery'}
+              </button>
             )}
-            
-            <div className="pt-4">
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
-              {!preview ? (
-                <button
-                  onClick={() => fileRef.current.click()}
-                  className="w-full flex flex-col items-center justify-center gap-3 py-10 border-2 border-dashed border-gold/20 rounded-2xl bg-cream/20 hover:bg-gold/5 transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Plus className="w-6 h-6 text-gold" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-navy">Select a Photo</p>
-                    <p className="text-[10px] text-navy/40">JPG, PNG, or WebP</p>
-                  </div>
-                </button>
-              ) : (
-                <button
-                  onClick={handleUpload}
-                  disabled={uploading}
-                  className="w-full py-4 btn-gold rounded-xl font-bold text-sm shadow-gold-sm flex items-center justify-center gap-3 disabled:opacity-60"
-                >
-                  {uploading ? <span className="w-5 h-5 border-2 border-navy/30 border-t-navy rounded-full animate-spin" /> : <Upload className="w-5 h-5" />}
-                  {uploading ? 'Processing...' : 'Confirm & Upload'}
-                </button>
-              )}
-            </div>
           </div>
 
-          {/* Right: Preview Window */}
-          <div>
-            <label className="text-[10px] font-bold text-navy/40 uppercase tracking-wider mb-1.5 block">Live Preview (As seen in Gallery)</label>
-            <div className="aspect-[4/5] rounded-2xl bg-cream border-2 border-navy/5 overflow-hidden relative shadow-inner">
-              {preview ? (
-                <img 
-                  src={preview} 
-                  alt="preview" 
-                  className={`w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-contain'}`} 
-                  style={fit === 'cover' ? { objectPosition: `50% ${position}%` } : {}}
-                />
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-navy/15">
-                  <Image className="w-12 h-12 mb-2" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">No Image Selected</p>
-                </div>
-              )}
-              {/* Fake Gallery Label for real feel */}
-              {preview && (
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-navy/80 to-transparent">
-                  <p className="text-white text-xs font-serif font-bold">{form.category}</p>
-                  <p className="text-white/70 text-[10px] truncate">{form.alt || 'No description set'}</p>
-                </div>
-              )}
-            </div>
-            <p className="text-[10px] text-navy/40 text-center mt-3 italic">This is exactly how it will appear in your public gallery.</p>
+          <div className="space-y-1.5">
+             <label className="text-[10px] font-bold text-navy/40 uppercase tracking-widest ml-1">Public Preview</label>
+             <div className="aspect-[4/5] rounded-[2rem] overflow-hidden bg-navy/5 border border-navy/5 relative shadow-inner">
+                {preview ? (
+                   <img src={preview} className="w-full h-full object-cover" alt="" />
+                ) : (
+                   <div className="absolute inset-0 flex flex-col items-center justify-center text-navy/10">
+                      <Image className="w-16 h-16 mb-2" />
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Ready for Selection</p>
+                   </div>
+                )}
+             </div>
           </div>
         </div>
       </div>
 
-      {/* Photo grid */}
-      {photos.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-gold/20 bg-cream p-10 text-center">
-          <Image className="w-10 h-10 text-navy/20 mx-auto mb-3" />
-          <p className="text-navy/40 text-sm">No photos yet — upload your first one above</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {photos.map((p) => (
-            <div key={p.id} className="group relative rounded-xl overflow-hidden border border-gold/10 bg-cream">
-              <img src={p.url} alt={p.alt} className="w-full aspect-square object-cover" />
-              <div className="absolute inset-0 bg-navy/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <button onClick={() => handleDelete(p.id)} className="p-2 bg-red-500 rounded-full text-white hover:bg-red-600 transition-colors">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="px-2 py-1.5 bg-white/80">
-                <p className="text-[10px] text-navy/60 truncate">{p.alt || p.category}</p>
-                <span className="inline-block px-1.5 py-0.5 bg-gold/15 text-gold text-[9px] rounded-full">{p.category}</span>
-              </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {photos.map(p => (
+          <div key={p.id} className="relative aspect-[4/5] rounded-[2rem] overflow-hidden group shadow-sm bg-navy/5">
+            <img src={p.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
+            <div className="absolute inset-0 bg-gradient-to-t from-navy-dark/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <button 
+              onClick={() => handleDelete(p.id)}
+              className="absolute top-4 right-4 p-3 bg-red-500 text-white rounded-2xl opacity-0 translate-y-[-10px] group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-red-600"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+            <div className="absolute bottom-6 left-6 right-6 opacity-0 translate-y-[10px] group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 delay-75">
+              <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest mb-1">{p.category}</p>
+              <p className="text-xs text-white font-medium truncate">{p.alt || 'Untitled Masterpiece'}</p>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-// ─── Tab: YouTube Videos ──────────────────────────────────────────────────────
-function VideosTab({ toast }) {
-  const [videos, setVideos]   = useState([]);
-  const [form, setForm]       = useState({ youtube_id: '', title: '', description: '', tag: 'Wedding Film' });
-  const [saving, setSaving]   = useState(false);
-  const VIDEO_TAGS = ['Wedding Film', 'Pre-Wedding', 'Birthday', 'Corporate', 'Highlights'];
+// ─── Tab: Services ───────────────────────────────────────────────────────────
+function ServicesTab({ toast }) {
+  const [services, setServices] = useState({});
+  const [loading, setLoading]   = useState(true);
+  const [adding, setAdding]     = useState(false);
+  const [newCat, setNewCat]     = useState('');
+  const [form, setForm]         = useState({ service_id: '', name: '', price: 'Enquire', note: '' });
+  const [covers, setCovers]     = useState({}); // { service_id: url }
+  const [editingPkg, setEditingPkg] = useState(null);
+  const fileRef = useRef();
+  const [activeCatForImage, setActiveCatForImage] = useState(null);
 
-  const load = () => fetch(`${API_BASE}/api/videos`).then(r => r.json()).then(setVideos).catch(() => {});
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [svcRes, galleryRes] = await Promise.all([
+        fetch(`${API_BASE}/api/services`).then(r => r.json()),
+        fetch(`${API_BASE}/api/gallery?category=SERVICE_COVER`).then(r => r.json())
+      ]);
+      setServices(svcRes);
+      
+      const coverMap = {};
+      (galleryRes || []).forEach(p => {
+        const sid = p.alt.replace('SERVICE_COVER_', '');
+        coverMap[sid] = p.url;
+      });
+      setCovers(coverMap);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+
+  const handleSaveEdit = async () => {
+    if (!editingPkg) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/services/${editingPkg.id}`, {
+        method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingPkg.name,
+          price: editingPkg.price,
+          note: editingPkg.note
+        })
+      });
+      if (res.ok) {
+        toast('Package updated!', 'success');
+        setEditingPkg(null);
+        load();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddPackage = async () => {
+    if (!form.service_id || !form.name) return toast('Category and Name required', 'error');
+    setAdding(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/services`, {
+        method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(form)
+      });
+      if (res.ok) { toast('Package added!', 'success'); setForm({ ...form, name: '', note: '' }); load(); }
+    } finally { setAdding(false); }
+  };
+
+  const handleAddCategory = () => {
+    if (!newCat) return;
+    setForm({ ...form, service_id: newCat });
+    setNewCat('');
+    toast(`Category "${newCat}" ready. Add a package to save it.`, 'success');
+  };
+
+  const handleDeletePackage = async (sid, name) => {
+    if (!confirm(`Delete package "${name}"?`)) return;
+    await fetch(`${API_BASE}/api/admin/services/${sid}?package=${encodeURIComponent(name)}`, {
+      method: 'DELETE', headers: authHeaders()
+    });
+    load();
+  };
+
+  const handleDeleteCategory = async (sid) => {
+    if (!confirm(`Delete ENTIRE category "${sid}" and all its packages?`)) return;
+    await fetch(`${API_BASE}/api/admin/services/${sid}`, { method: 'DELETE', headers: authHeaders() });
+    load();
+  };
+
+  const handleUploadCover = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !activeCatForImage) return;
+    setLoading(true);
+    const fd = new FormData();
+    fd.append('photo', file);
+    fd.append('category', 'SERVICE_COVER');
+    fd.append('alt', `SERVICE_COVER_${activeCatForImage}`);
+    
+    try {
+      // First delete existing cover if any
+      const existing = (await fetch(`${API_BASE}/api/gallery?category=SERVICE_COVER`).then(r => r.json()))
+        .find(p => p.alt === `SERVICE_COVER_${activeCatForImage}`);
+      
+      if (existing) {
+        await fetch(`${API_BASE}/api/admin/gallery/${existing.id}`, { method: 'DELETE', headers: authHeaders() });
+      }
+
+      await fetch(`${API_BASE}/api/admin/gallery`, { method: 'POST', headers: authHeaders(), body: fd });
+      toast('Category cover updated!', 'success');
+      load();
+    } finally { setLoading(false); setActiveCatForImage(null); }
+  };
+
+  const sids = [...new Set([...Object.keys(services), form.service_id])].filter(Boolean);
+
+  if (loading && Object.keys(services).length === 0) return <div className="flex justify-center p-20"><div className="w-8 h-8 border-2 border-gold/20 border-t-gold rounded-full animate-spin" /></div>;
+
+  return (
+    <div className="space-y-16 pb-20">
+      {/* Configuration Header */}
+      <div className="bg-white border border-gold/15 rounded-[2.5rem] p-10 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gold/5 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
+        
+        <h3 className="font-serif text-2xl font-bold text-navy mb-8">Manage Service Catalogue</h3>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          {/* Add Category */}
+          <div className="space-y-4">
+            <label className="text-[10px] font-bold text-navy/40 uppercase tracking-widest">Create New Category</label>
+            <div className="flex gap-2">
+              <input 
+                type="text" placeholder="e.g. Newborn, Fashion, Event" value={newCat} onChange={e => setNewCat(e.target.value)}
+                className="flex-1 px-6 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none"
+              />
+              <button onClick={handleAddCategory} className="px-6 py-4 bg-navy text-gold rounded-2xl font-bold text-xs uppercase tracking-widest active:scale-95 transition-all">Add</button>
+            </div>
+          </div>
+
+          {/* Add Package */}
+          <div className="space-y-4">
+            <label className="text-[10px] font-bold text-navy/40 uppercase tracking-widest">Quick Add Package</label>
+            <div className="grid grid-cols-2 gap-3">
+              <select value={form.service_id} onChange={e => setForm({...form, service_id: e.target.value})} className="px-5 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none">
+                <option value="">Select Category...</option>
+                {sids.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <input type="text" placeholder="Package Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="px-5 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none" />
+              <input type="text" placeholder="Price Note" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="px-5 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none" />
+              <input type="text" placeholder="Tagline/Note" value={form.note} onChange={e => setForm({...form, note: e.target.value})} className="px-5 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none" />
+            </div>
+            <button onClick={handleAddPackage} disabled={adding} className="w-full py-4 btn-gold rounded-full text-sm font-bold flex items-center justify-center gap-2 shadow-gold-sm transition-all active:scale-95">
+              {adding ? <span className="w-4 h-4 border-2 border-navy/30 border-t-navy rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
+              Save Package to {form.service_id || '...'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Services Display */}
+      <div className="space-y-20">
+        <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleUploadCover} />
+        {Object.entries(services).map(([sid, pkgs]) => (
+          <div key={sid} className="space-y-8">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-navy/5 pb-6">
+              <div className="flex items-center gap-6">
+                 {/* Category Image Cover */}
+                 <div className="relative group cursor-pointer" onClick={() => { setActiveCatForImage(sid); fileRef.current.click(); }}>
+                    <div className="w-24 h-24 rounded-[2rem] overflow-hidden bg-navy/5 border border-gold/20 shadow-inner flex items-center justify-center">
+                       {covers[sid] ? (
+                         <img src={covers[sid]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                       ) : (
+                         <Image className="w-6 h-6 text-gold/30" />
+                       )}
+                    </div>
+                    <div className="absolute inset-0 bg-navy/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-[2rem] transition-opacity">
+                       <Upload className="w-4 h-4 text-white" />
+                    </div>
+                 </div>
+                 <div>
+                    <h4 className="font-serif text-3xl text-navy font-bold capitalize flex items-center gap-3">
+                      {sid}
+                    </h4>
+                    <p className="text-[10px] font-bold text-gold uppercase tracking-[0.3em] mt-1">Service Category</p>
+                 </div>
+              </div>
+              <button onClick={() => handleDeleteCategory(sid)} className="px-6 py-3 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-full text-[10px] font-bold uppercase tracking-widest transition-all">
+                 Delete Entire Category
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {pkgs.map(p => {
+                const isEditing = editingPkg?.id === p.id;
+                return (
+                  <div key={p.id} className="bg-white p-10 rounded-[3rem] border border-gold/10 hover:border-gold/30 transition-all group relative shadow-sm">
+                     <p className="text-[10px] font-bold text-navy/30 uppercase tracking-[0.2em] mb-4">Package</p>
+                     
+                     {isEditing ? (
+                       <div className="space-y-4">
+                         <input 
+                           className="w-full px-4 py-2 rounded-xl border border-navy/10 text-sm font-serif font-bold" 
+                           value={editingPkg.name} 
+                           onChange={e => setEditingPkg({...editingPkg, name: e.target.value})} 
+                         />
+                         <input 
+                           className="w-full px-4 py-2 rounded-xl border border-navy/10 text-sm font-bold text-gold" 
+                           value={editingPkg.price} 
+                           onChange={e => setEditingPkg({...editingPkg, price: e.target.value})} 
+                         />
+                         <textarea 
+                           className="w-full px-4 py-2 rounded-xl border border-navy/10 text-xs italic text-navy/50" 
+                           value={editingPkg.note} 
+                           onChange={e => setEditingPkg({...editingPkg, note: e.target.value})} 
+                         />
+                         <div className="flex gap-2">
+                           <button onClick={handleSaveEdit} className="flex-1 py-2 bg-navy text-white rounded-lg text-[10px] font-bold uppercase tracking-widest">Save</button>
+                           <button onClick={() => setEditingPkg(null)} className="flex-1 py-2 border border-navy/10 rounded-lg text-[10px] font-bold uppercase tracking-widest">Cancel</button>
+                         </div>
+                       </div>
+                     ) : (
+                       <>
+                         <p className="font-serif text-2xl font-bold text-navy mb-1">{p.name}</p>
+                         <p className="text-gold font-bold text-sm mb-6">{p.price}</p>
+                         <div className="h-px bg-navy/5 w-12 mb-6" />
+                         <p className="text-xs text-navy/50 leading-relaxed italic">"{p.note}"</p>
+                         
+                         <div className="absolute top-8 right-8 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                            <button onClick={() => setEditingPkg(p)} className="p-3 text-gold/60 hover:bg-gold/5 rounded-2xl hover:text-gold transition-colors">
+                               <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeletePackage(sid, p.name)} className="p-3 text-red-300 hover:bg-red-50 rounded-2xl hover:text-red-500 transition-colors">
+                               <Trash2 className="w-4 h-4" />
+                            </button>
+                         </div>
+                       </>
+                     )}
+                  </div>
+                );
+              })}
+              <button onClick={() => setForm({...form, service_id: sid})} className="border-2 border-dashed border-gold/10 rounded-[3rem] p-10 flex flex-col items-center justify-center gap-3 text-navy/20 hover:border-gold/50 hover:text-gold transition-all">
+                 <Plus className="w-8 h-8" />
+                 <span className="text-[10px] font-bold uppercase tracking-widest">Add Package</span>
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab: Videos ─────────────────────────────────────────────────────────────
+function VideosTab({ toast }) {
+  const [videos, setVideos] = useState([]);
+  const [adding, setAdding]   = useState(false);
+  const [form, setForm]       = useState({ title: '', youtube_id: '', category: 'Wedding' });
+
+  const load = () => fetch(`${API_BASE}/api/videos`).then(r => r.json()).then(d => setVideos(Array.isArray(d) ? d : [])).catch(() => {});
   useEffect(() => { load(); }, []);
 
   const handleAdd = async () => {
-    if (!form.youtube_id.trim()) { toast('YouTube ID is required', 'error'); return; }
-    setSaving(true);
+    if (!form.youtube_id) return toast('YouTube ID required', 'error');
+    setAdding(true);
     try {
       const res = await fetch(`${API_BASE}/api/admin/videos`, {
-        method: 'POST',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(form)
       });
-      const data = await res.json();
-      if (res.ok) { load(); toast('Video added!', 'success'); setForm({ youtube_id: '', title: '', description: '', tag: 'Wedding Film' }); }
-      else toast(data.error || 'Failed to add video', 'error');
-    } catch { toast('Failed — is backend running?', 'error'); }
-    finally { setSaving(false); }
+      if (res.ok) { toast('Video added!'); setForm({ ...form, title: '', youtube_id: '' }); load(); }
+    } finally { setAdding(false); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Remove this video?')) return;
+    if (!confirm('Delete video?')) return;
     await fetch(`${API_BASE}/api/admin/videos/${id}`, { method: 'DELETE', headers: authHeaders() });
-    setVideos(videos.filter(v => v.id !== id));
-    toast('Video removed', 'success');
+    load();
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="font-serif text-2xl text-navy font-semibold mb-1">Videos</h2>
-        <p className="text-navy/50 text-sm">Manage YouTube video IDs shown on the Videos page. Paste just the video ID (e.g. <code className="bg-gold/10 px-1 rounded text-gold">dQw4w9WgXcQ</code> from youtube.com/watch?v=<strong>dQw4w9WgXcQ</strong>).</p>
-      </div>
-
-      {/* Add form */}
-      <div className="bg-cream border border-gold/15 rounded-2xl p-6 space-y-4">
-        <h3 className="font-semibold text-navy text-sm">Add a Video</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <input type="text" placeholder="YouTube Video ID *" value={form.youtube_id}
-            onChange={e => setForm(f => ({ ...f, youtube_id: e.target.value }))}
-            className="px-4 py-3 rounded-xl border border-navy/10 bg-white text-sm text-navy/80 focus:outline-none focus:border-gold/40 transition-all" />
-          <input type="text" placeholder="Title" value={form.title}
-            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            className="px-4 py-3 rounded-xl border border-navy/10 bg-white text-sm text-navy/80 focus:outline-none focus:border-gold/40 transition-all" />
-          <input type="text" placeholder="Short description" value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            className="px-4 py-3 rounded-xl border border-navy/10 bg-white text-sm text-navy/80 focus:outline-none focus:border-gold/40 transition-all" />
-          <select value={form.tag} onChange={e => setForm(f => ({ ...f, tag: e.target.value }))}
-            className="px-4 py-3 rounded-xl border border-navy/10 bg-white text-sm text-navy/80 focus:outline-none focus:border-gold/40 transition-all">
-            {VIDEO_TAGS.map(t => <option key={t}>{t}</option>)}
+    <div className="space-y-10">
+      <div className="bg-white border border-gold/15 rounded-[2.5rem] p-8 shadow-sm">
+        <h3 className="font-serif text-xl font-bold text-navy mb-6">Feature YouTube Work</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <input type="text" placeholder="Video Title" value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="px-5 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none" />
+          <input type="text" placeholder="YouTube ID" value={form.youtube_id} onChange={e => setForm({...form, youtube_id: e.target.value})} className="px-5 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none" />
+          <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="px-5 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none">
+            {PHOTO_CATEGORIES.map(c => <option key={c}>{c}</option>)}
           </select>
         </div>
-        <button onClick={handleAdd} disabled={saving}
-          className="inline-flex items-center gap-2 px-6 py-3 btn-gold rounded-full text-sm disabled:opacity-60">
-          {saving ? <span className="w-4 h-4 border-2 border-navy/30 border-t-navy rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
+        <button onClick={handleAdd} disabled={adding} className="px-8 py-4 btn-gold rounded-full text-sm flex items-center gap-2">
+          {adding ? <span className="w-4 h-4 border-2 border-navy/30 border-t-navy rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
           Add Video
         </button>
       </div>
 
-      {/* Video list */}
-      {videos.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-gold/20 bg-cream p-10 text-center">
-          <Youtube className="w-10 h-10 text-navy/20 mx-auto mb-3" />
-          <p className="text-navy/40 text-sm">No videos added yet</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {videos.map((v) => (
-            <div key={v.id} className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gold/10 hover:border-gold/30 transition-all">
-              <img
-                src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
-                alt={v.title}
-                className="w-24 h-16 object-cover rounded-lg shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-navy text-sm truncate">{v.title || v.youtube_id}</p>
-                <p className="text-navy/45 text-xs truncate">{v.description}</p>
-                <span className="inline-block mt-1 px-2 py-0.5 bg-gold/10 text-gold text-[10px] rounded-full border border-gold/20">{v.tag}</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {videos.map(v => (
+          <div key={v.id} className="bg-white rounded-[2rem] overflow-hidden border border-gold/10 shadow-sm group">
+            <div className="aspect-video relative overflow-hidden bg-navy">
+              <img src={`https://img.youtube.com/vi/${v.youtube_id}/maxresdefault.jpg`} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-60" alt="" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                 <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30">
+                    <Youtube className="w-6 h-6 text-white" />
+                 </div>
               </div>
-              <button onClick={() => handleDelete(v.id)} className="p-2 text-navy/30 hover:text-red-500 transition-colors shrink-0">
+              <button onClick={() => handleDelete(v.id)} className="absolute top-4 right-4 p-2 bg-red-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
-          ))}
-        </div>
-      )}
+            <div className="p-6">
+              <p className="text-[10px] font-bold text-gold uppercase tracking-[0.2em] mb-1">{v.category}</p>
+              <p className="font-bold text-navy truncate">{v.title || 'Untitled Work'}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-
-// ─── Tab: Clients & Wish Automation ─────────────────────────────────────────────
+// ─── Tab: Clients ────────────────────────────────────────────────────────────
+// ─── Tab: Clients ────────────────────────────────────────────────────────────
 function ClientsTab({ toast }) {
-  const EMPTY = { name: '', phone: '', birthday: '', anniversary: '', notes: '' };
-  const [clients, setClients]     = useState([]);
-  const [form, setForm]           = useState(EMPTY);
-  const [editing, setEditing]     = useState(null);
-  const [saving, setSaving]       = useState(false);
-  const [testing, setTesting]     = useState(null);
-  // Per-client media upload state
-  const [mediaUploading, setMediaUploading] = useState({}); // { clientId: true }
-  const mediaInputRef = useRef({});
-  const [mediaFile, setMediaFile] = useState(null); // File selected in the add/edit form
-  const addFormMediaRef = useRef();
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ client_name: '', whatsapp_number: '', wish_date: '' });
 
-  const load = () =>
+  const load = () => {
+    setLoading(true);
     fetch(`${API_BASE}/api/admin/clients`, { headers: authHeaders() })
-      .then(r => r.json()).then(setClients).catch(() => {});
+      .then(r => r.json())
+      .then(d => { 
+        setClients(Array.isArray(d) ? d : []); 
+        setLoading(false); 
+      })
+      .catch(() => {
+        setClients([]);
+        setLoading(false);
+      });
+  };
   useEffect(() => { load(); }, []);
 
-  const handleSave = async () => {
-    if (!form.name || !form.phone) { toast('Name and phone are required', 'error'); return; }
-    setSaving(true);
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    if (!form.client_name || !form.whatsapp_number) return toast('Name and Phone are required', 'error');
+    setAdding(true);
     try {
-      const url    = editing ? `${API_BASE}/api/admin/clients/${editing}` : `${API_BASE}/api/admin/clients`;
-      const method = editing ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
+      const res = await fetch(`${API_BASE}/api/wishes`, {
+        method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(form)
       });
-      const data = await res.json();
       if (res.ok) {
-        let uploadOk = true;
-        if (mediaFile) {
-          uploadOk = await handleMediaUpload(data.id, mediaFile, true);
-        } else {
-          load();
-        }
-        
-        toast(editing ? 'Client updated!' : (mediaFile && uploadOk ? 'Client & media added!' : 'Client added!'), 'success');
-        setForm(EMPTY); setEditing(null); setMediaFile(null);
-      } else toast(data.error || 'Failed', 'error');
-    } catch { toast('Failed — is backend running?', 'error'); }
-    finally { setSaving(false); }
-  };
-
-  const handleEdit = (c) => {
-    setEditing(c.id);
-    setForm({ name: c.name, phone: c.phone, birthday: c.birthday || '', anniversary: c.anniversary || '', notes: c.notes || '' });
-    setMediaFile(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+        toast('Client registered successfully!', 'success');
+        setForm({ client_name: '', whatsapp_number: '', wish_date: '' });
+        load();
+      } else toast('Failed to register', 'error');
+    } finally { setAdding(false); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this client?')) return;
+    if (!confirm('Delete client entry?')) return;
     await fetch(`${API_BASE}/api/admin/clients/${id}`, { method: 'DELETE', headers: authHeaders() });
-    setClients(clients.filter(c => c.id !== id));
-    toast('Client deleted', 'success');
+    load();
   };
 
-  const handleMediaUpload = async (clientId, file, quiet = false) => {
-    if (!file) return false;
-    setMediaUploading(m => ({ ...m, [clientId]: true }));
-    const fd = new FormData();
-    fd.append('media', file);
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/clients/${clientId}/media`, {
-        method: 'POST', headers: authHeaders(), body: fd,
-      });
-      const data = await res.json();
-      if (res.ok) { 
-        load(); 
-        if (!quiet) toast('Wish media uploaded!', 'success'); 
-        return true; 
-      }
-      if (!quiet) toast(data.error || 'Upload failed', 'error'); 
-      return false;
-    } catch { 
-      if (!quiet) toast('Upload failed', 'error'); 
-      return false; 
-    }
-    finally { setMediaUploading(m => ({ ...m, [clientId]: false })); }
-  };
-
-  const handleTest = async (id, type) => {
-    setTesting(id + type);
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/clients/test/${id}`, {
-        method: 'POST',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type }),
-      });
-      const data = await res.json();
-      toast(data.message || (data.ok ? 'Sent!' : 'Failed'), data.ok ? 'success' : 'error');
-    } catch { toast('Send failed', 'error'); }
-    finally { setTesting(null); }
-  };
-
-  const inputCls = 'px-4 py-3 rounded-xl border border-navy/10 bg-white text-sm text-navy placeholder-navy/40 focus:outline-none focus:border-gold/40 transition-all';
+  if (loading) return <div className="p-20 text-center"><div className="w-8 h-8 border-2 border-gold/20 border-t-gold rounded-full animate-spin mx-auto" /></div>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="font-serif text-2xl text-navy font-semibold mb-1">Clients & Wish Automation</h2>
-        <p className="text-navy/50 text-sm">Add clients with their birthday/anniversary. The system sends a personalised WhatsApp message with your photo/video every year at 9 AM automatically.</p>
-      </div>
-
-      {/* Add / Edit form */}
-      <div className="bg-cream border border-gold/15 rounded-2xl p-6 space-y-4">
-        <h3 className="font-semibold text-navy text-sm">{editing ? '✏️ Edit Client' : '+ Add New Client'}</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <input className={inputCls} placeholder="Full Name *" value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-          <input className={inputCls} placeholder="Phone number (e.g. 9866598393) *" value={form.phone}
-            onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-          <div>
-            <label className="text-xs text-navy/50 mb-1 block">Birthday</label>
-            <input type="date" className={inputCls + ' w-full'} value={form.birthday}
-              onChange={e => setForm(f => ({ ...f, birthday: e.target.value }))} />
-          </div>
-          <div>
-            <label className="text-xs text-navy/50 mb-1 block">Anniversary</label>
-            <input type="date" className={inputCls + ' w-full'} value={form.anniversary}
-              onChange={e => setForm(f => ({ ...f, anniversary: e.target.value }))} />
-          </div>
-          <input className={inputCls + ' sm:col-span-2'} placeholder="Notes (optional — e.g. preferred package, event type)" value={form.notes}
-            onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+    <div className="space-y-12 pb-20">
+       <div className="bg-white border border-gold/15 rounded-[2.5rem] p-10 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gold/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+          <h3 className="font-serif text-2xl font-bold text-navy mb-2">Register New Client</h3>
+          <p className="text-navy/40 text-sm mb-10 max-w-xl">Add clients manually to the registry. They will receive automated anniversary/birthday wishes if a date is provided.</p>
           
-          {/* Wish media direct select */}
-          <div className="sm:col-span-2">
-            <label className="text-xs text-navy/50 mb-1.5 block">Wish Photo / Video (Optional)</label>
-            <div className="flex items-center gap-3">
-              <input
-                ref={addFormMediaRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
-                className="hidden"
-                onChange={e => setMediaFile(e.target.files[0])}
-              />
-              <button
-                type="button"
-                onClick={() => addFormMediaRef.current?.click()}
-                className="px-4 py-2 text-xs border border-navy/15 text-navy/60 bg-white rounded-lg hover:border-gold/50 hover:text-navy transition-all"
-              >
-                <Upload className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
-                {mediaFile ? mediaFile.name : 'Select File from Computer'}
-              </button>
-              {mediaFile && (
-                <button type="button" onClick={() => setMediaFile(null)} className="text-xs text-red-400 hover:text-red-500 underline underline-offset-2">
-                  Clear
+          <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-navy/40 uppercase tracking-widest ml-1">Full Name</label>
+                <input 
+                  type="text" placeholder="e.g. Rajesh Kumar"
+                  value={form.client_name} onChange={e => setForm({...form, client_name: e.target.value})}
+                  className="w-full px-6 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none focus:border-gold/30"
+                />
+             </div>
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-navy/40 uppercase tracking-widest ml-1">WhatsApp Number</label>
+                <input 
+                  type="text" placeholder="919876543210"
+                  value={form.whatsapp_number} onChange={e => setForm({...form, whatsapp_number: e.target.value})}
+                  className="w-full px-6 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none focus:border-gold/30"
+                />
+             </div>
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-navy/40 uppercase tracking-widest ml-1">Special Date (Optional)</label>
+                <input 
+                  type="date"
+                  value={form.wish_date} onChange={e => setForm({...form, wish_date: e.target.value})}
+                  className="w-full px-6 py-4 rounded-2xl border border-navy/5 bg-cream/30 text-sm focus:outline-none focus:border-gold/30"
+                />
+             </div>
+             <div className="md:col-span-3 flex justify-end mt-4">
+                <button 
+                  type="submit" disabled={adding}
+                  className="px-12 py-4 btn-gold rounded-full font-bold text-sm shadow-gold-sm flex items-center gap-3 active:scale-95 transition-transform"
+                >
+                   {adding ? <span className="w-4 h-4 border-2 border-navy/30 border-t-navy rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
+                   Add to Registry
                 </button>
-              )}
-            </div>
+             </div>
+          </form>
+       </div>
+
+       <div className="space-y-6">
+          <div className="flex items-center justify-between px-4">
+             <h3 className="font-serif text-2xl font-bold text-navy">Customer Database</h3>
+             <div className="px-6 py-2.5 bg-navy text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest">{clients.length} Active Profiles</div>
           </div>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={handleSave} disabled={saving}
-            className="inline-flex items-center gap-2 px-6 py-3 btn-gold rounded-full text-sm disabled:opacity-60">
-            {saving ? <span className="w-4 h-4 border-2 border-navy/30 border-t-navy rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
-            {editing ? 'Update Client' : 'Add Client'}
-          </button>
-          {editing && (
-            <button onClick={() => { setEditing(null); setForm(EMPTY); setMediaFile(null); }}
-              className="px-6 py-3 border border-navy/15 text-navy/60 text-sm rounded-full hover:text-navy transition-colors">
-              Cancel
-            </button>
-          )}
-        </div>
-      </div>
 
-      {/* Clients list */}
-      {clients.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-gold/20 bg-cream p-10 text-center">
-          <Users className="w-10 h-10 text-navy/20 mx-auto mb-3" />
-          <p className="text-navy/40 text-sm">No clients yet — add your first client above</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-xs text-navy/40 font-medium">{clients.length} client{clients.length !== 1 ? 's' : ''} registered</p>
-          {clients.map((c) => (
-            <div key={c.id} className="bg-white rounded-2xl border border-gold/10 overflow-hidden hover:border-gold/25 transition-all">
-              <div className="flex items-start gap-4 p-4">
-                {/* Avatar */}
-                <div className="w-10 h-10 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center shrink-0 font-serif text-gold font-bold text-sm">
-                  {c.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-navy text-sm">{c.name}</p>
-                  <div className="flex flex-wrap gap-3 mt-1">
-                    <span className="flex items-center gap-1 text-xs text-navy/50"><Phone className="w-3 h-3" /> {c.phone}</span>
-                    {c.birthday    && <span className="flex items-center gap-1 text-xs text-navy/50"><Calendar className="w-3 h-3" /> 🎂 {c.birthday}</span>}
-                    {c.anniversary && <span className="flex items-center gap-1 text-xs text-navy/50"><Calendar className="w-3 h-3" /> 💍 {c.anniversary}</span>}
-                  </div>
-                  {c.notes && <p className="text-xs text-navy/35 mt-1 italic">{c.notes}</p>}
-                </div>
-                {/* Actions */}
-                <div className="flex items-center gap-1 shrink-0">
-                  {c.birthday && (
-                    <button onClick={() => handleTest(c.id, 'birthday')} disabled={!!testing}
-                      title="Send test birthday wish now"
-                      className="p-2 text-navy/30 hover:text-gold transition-colors flex flex-col items-center gap-0.5">
-                      {testing === c.id + 'birthday'
-                        ? <span className="w-3 h-3 border border-gold/40 border-t-gold rounded-full animate-spin" />
-                        : <Send className="w-3.5 h-3.5" />}
-                      <span className="text-[9px]">🎂</span>
-                    </button>
-                  )}
-                  {c.anniversary && (
-                    <button onClick={() => handleTest(c.id, 'anniversary')} disabled={!!testing}
-                      title="Send test anniversary wish now"
-                      className="p-2 text-navy/30 hover:text-gold transition-colors flex flex-col items-center gap-0.5">
-                      {testing === c.id + 'anniversary'
-                        ? <span className="w-3 h-3 border border-gold/40 border-t-gold rounded-full animate-spin" />
-                        : <Send className="w-3.5 h-3.5" />}
-                      <span className="text-[9px]">💍</span>
-                    </button>
-                  )}
-                  <button onClick={() => handleEdit(c)} className="p-2 text-navy/30 hover:text-gold transition-colors">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleDelete(c.id)} className="p-2 text-navy/30 hover:text-red-500 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Wish media section */}
-              <div className="px-4 pb-4 border-t border-gold/8 pt-3">
-                <p className="text-[10px] text-navy/40 font-semibold uppercase tracking-wide mb-2">Wish Photo / Video</p>
-                <div className="flex items-center gap-3">
-                  {/* Preview */}
-                  {c.wish_media_url ? (
-                    <div className="w-16 h-16 rounded-xl overflow-hidden border border-gold/15 shrink-0 bg-cream flex items-center justify-center">
-                      {c.wish_media_url.match(/\.(mp4|webm|mov)$/i)
-                        ? <video src={c.wish_media_url} className="w-full h-full object-cover" muted />
-                        : <img src={c.wish_media_url} alt="wish" className="w-full h-full object-cover" />}
-                    </div>
-                  ) : (
-                    <div className="w-16 h-16 rounded-xl border-2 border-dashed border-gold/20 bg-cream flex items-center justify-center shrink-0">
-                      <Image className="w-5 h-5 text-navy/20" />
-                    </div>
-                  )}
-                  {/* Upload button */}
-                  <div>
-                    <input
-                      ref={el => mediaInputRef.current[c.id] = el}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
-                      className="hidden"
-                      onChange={e => handleMediaUpload(c.id, e.target.files[0])}
-                    />
-                    <button
-                      onClick={() => mediaInputRef.current[c.id]?.click()}
-                      disabled={mediaUploading[c.id]}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs border border-gold/25 text-navy/60 rounded-full hover:border-gold/50 hover:text-navy transition-all disabled:opacity-50"
-                    >
-                      {mediaUploading[c.id]
-                        ? <span className="w-3 h-3 border border-navy/30 border-t-navy rounded-full animate-spin" />
-                        : <Upload className="w-3 h-3" />}
-                      {c.wish_media_url ? 'Change Media' : 'Upload Photo / Video'}
-                    </button>
-                    <p className="text-[10px] text-navy/30 mt-1">Sent with every birthday & anniversary wish</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* CallMeBot setup info */}
-      <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
-        <p className="text-xs font-bold text-green-700 mb-1 uppercase tracking-wide">📱 CallMeBot Setup (Free)</p>
-        <p className="text-green-800/70 text-xs leading-relaxed">
-          Add these to <code className="bg-white px-1 rounded border border-green-200">backend/.env</code> to activate automatic admin notifications:
-          <br /><strong>CALLMEBOT_PHONE</strong> · <strong>CALLMEBOT_APIKEY</strong> · <strong>ADMIN_WHATSAPP</strong>
-          <br /><span className="text-green-700/50">Setup guide: callmebot.com/blog/free-api-whatsapp-messages/</span>
-        </p>
-      </div>
+          <div className="bg-white border border-gold/15 rounded-[2.5rem] overflow-hidden shadow-sm">
+             <table className="w-full text-left">
+                <thead className="bg-gold/5 border-b border-gold/10 text-[10px] font-bold text-navy/40 uppercase tracking-widest">
+                   <tr>
+                      <th className="p-8">Client Name</th>
+                      <th className="p-8">Contact</th>
+                      <th className="p-8">Anniversary / B'day</th>
+                      <th className="p-8 text-right">Settings</th>
+                   </tr>
+                </thead>
+                <tbody className="divide-y divide-navy/5">
+                   {Array.isArray(clients) && clients.map(c => (
+                      <tr key={c.id} className="hover:bg-cream/10 group transition-colors">
+                         <td className="p-8 font-bold text-navy flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center text-gold text-[10px]">{c.client_name.substring(0,2).toUpperCase()}</div>
+                            {c.client_name}
+                         </td>
+                         <td className="p-8">
+                            <div className="flex items-center gap-2 text-navy/60">
+                               <Phone className="w-3 h-3" /> {c.whatsapp_number}
+                            </div>
+                         </td>
+                         <td className="p-8 text-navy/60">
+                            {c.wish_date ? (
+                               <div className="flex items-center gap-2">
+                                  <Calendar className="w-3 h-3" /> {new Date(c.wish_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                               </div>
+                            ) : '—'}
+                         </td>
+                         <td className="p-8 text-right">
+                            <button onClick={() => handleDelete(c.id)} className="p-3 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 rounded-xl">
+                               <Trash2 className="w-4 h-4" />
+                            </button>
+                         </td>
+                      </tr>
+                   ))}
+                </tbody>
+             </table>
+             {clients.length === 0 && <div className="p-20 text-center text-navy/20 italic">No registered clients yet</div>}
+          </div>
+       </div>
     </div>
   );
 }
 
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
+// ─── Main Admin Dashboard ────────────────────────────────────────────────────
 const TABS = [
-  { id: 'hero',    label: 'Hero Video',   icon: Video },
-  { id: 'gallery', label: 'Gallery',       icon: Image },
-  { id: 'videos',  label: 'Videos',        icon: Youtube },
-  { id: 'albums',  label: 'Design Albums', icon: FolderOpen },
-  { id: 'clients', label: 'Clients & Wishes', icon: Users },
+  { id: 'hero',    label: 'Hero Video',   icon: Video, desc: 'Manage landing video' },
+  { id: 'gallery', label: 'Gallery',       icon: Image, desc: 'Public photo stream' },
+  { id: 'services',label: 'Services',      icon: Sparkles, desc: 'Packages & Pricing' },
+  { id: 'videos',  label: 'Videos',        icon: Youtube, desc: 'YouTube Showcase' },
+  { id: 'albums',  label: 'Design Albums', icon: FolderOpen, desc: 'Client portfolios' },
+  { id: 'clients', label: 'Clients & Wishes', icon: Users, desc: 'Auto-greetings' },
 ];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('hero');
-  const [toast, setToast]         = useState(null); // { msg, type }
+  const [toast, setToast]         = useState(null);
 
   const showToast = (msg, type = 'success') => setToast({ msg, type });
 
@@ -729,75 +893,97 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-cream">
-      {/* ─── Topbar ─── */}
-      <header className="bg-navy-dark border-b border-gold/10 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gold/10 border border-gold/25 flex items-center justify-center">
-            <Camera className="w-4 h-4 text-gold" />
+    <div className="fixed inset-0 bg-[#FDFCF9] flex flex-col md:flex-row font-sans text-navy overflow-hidden">
+      {/* ─── Sidebar ─── */}
+      <aside className="w-full md:w-80 bg-[#0B0D11] text-white flex flex-col shrink-0 z-50 h-full">
+        <div className="p-10 border-b border-white/5">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-gold/10 border border-gold/20 flex items-center justify-center shadow-inner">
+              <Camera className="w-6 h-6 text-gold" />
+            </div>
+            <div>
+              <h1 className="font-serif text-xl font-bold leading-none tracking-tight">Sushma</h1>
+              <span className="text-[10px] text-gold/60 font-bold uppercase tracking-[0.2em] mt-1 block">Studio Admin</span>
+            </div>
           </div>
+        </div>
+
+        <nav className="flex-1 p-6 space-y-2 overflow-y-auto custom-scrollbar">
+          {TABS.map(({ id, label, icon: Icon, desc }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`w-full group flex items-center gap-5 px-5 py-5 rounded-3xl transition-all duration-500 relative overflow-hidden ${
+                activeTab === id
+                  ? 'bg-gold text-navy shadow-2xl shadow-gold/20'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Icon className={`w-5 h-5 shrink-0 transition-transform duration-500 ${activeTab === id ? 'scale-110' : 'group-hover:scale-110'}`} />
+              <div className="text-left">
+                <p className="text-sm font-bold tracking-wide leading-none">{label}</p>
+                <p className={`text-[10px] mt-1.5 opacity-60 font-medium ${activeTab === id ? 'text-navy' : 'text-white/40'}`}>
+                  {desc}
+                </p>
+              </div>
+              {activeTab === id && (
+                <motion.div layoutId="navGlow" className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent pointer-events-none" />
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-8 mt-auto">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-3 py-5 rounded-[2rem] bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all duration-500 font-bold text-xs uppercase tracking-[0.2em] group shadow-inner"
+          >
+            <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Sign Out
+          </button>
+        </div>
+      </aside>
+
+      {/* ─── Main View ─── */}
+      <main className="flex-1 min-w-0 h-full overflow-y-auto bg-[#FDFCF9] relative scroll-smooth custom-scrollbar">
+        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-3xl border-b border-navy/5 px-10 py-8 flex items-center justify-between">
           <div>
-            <span className="font-serif text-white text-sm font-semibold">Sushma Digitals</span>
-            <span className="block text-gold text-[9px] tracking-[0.2em] uppercase">Admin Panel</span>
+            <h2 className="text-3xl font-serif font-bold text-navy capitalize tracking-tight flex items-center gap-3">
+              {TABS.find(t => t.id === activeTab)?.label}
+              <ChevronRight className="w-5 h-5 text-gold/30" />
+            </h2>
+            <p className="text-xs text-navy/40 font-bold uppercase tracking-widest mt-1">Management Portal v2.0</p>
           </div>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 text-red-400 hover:text-red-500 text-xs transition-colors font-medium"
-        >
-          <LogOut className="w-4 h-4" /> Logout
-        </button>
-      </header>
-
-      <div className="max-w-5xl mx-auto px-6 py-10">
-        <div className="flex gap-8">
-          {/* ─── Sidebar ─── */}
-          <aside className="w-52 shrink-0 hidden md:block">
-            <nav className="space-y-1">
-              {TABS.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                    activeTab === id
-                      ? 'bg-navy text-gold border border-gold/25'
-                      : 'text-navy/60 hover:bg-white hover:text-navy hover:border-gold/15 border border-transparent'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {label}
-                </button>
-              ))}
-            </nav>
-          </aside>
-
-          {/* ─── Mobile tab bar ─── */}
-          <div className="md:hidden flex overflow-x-auto gap-2 pb-4 w-full no-scrollbar">
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-                  activeTab === id ? 'bg-navy text-gold border border-gold/25' : 'bg-white text-navy/60 border border-navy/10'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" /> {label}
-              </button>
-            ))}
+          <div className="flex items-center gap-5">
+            <div className="hidden sm:flex flex-col items-end">
+               <span className="text-sm font-bold text-navy">Super Admin</span>
+               <span className="text-[10px] text-navy/30 uppercase tracking-widest font-bold">Verified Session</span>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-navy text-white flex items-center justify-center font-bold shadow-xl border-4 border-white">
+              AD
+            </div>
           </div>
+        </header>
 
-          {/* ─── Content ─── */}
-          <main className="flex-1 min-w-0">
-            {activeTab === 'hero'    && <HeroTab    toast={showToast} />}
-            {activeTab === 'gallery' && <GalleryTab  toast={showToast} />}
-            {activeTab === 'videos'  && <VideosTab   toast={showToast} />}
-            {activeTab === 'albums'  && <AlbumsTab   toast={showToast} />}
-            {activeTab === 'clients' && <ClientsTab  toast={showToast} />}
-          </main>
+        <div className="max-w-7xl mx-auto p-10 md:p-16">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+            >
+              {activeTab === 'hero'    && <HeroTab    toast={showToast} />}
+              {activeTab === 'gallery' && <GalleryTab  toast={showToast} />}
+              {activeTab === 'services' && <ServicesTab toast={showToast} />}
+              {activeTab === 'videos'  && <VideosTab   toast={showToast} />}
+              {activeTab === 'albums'  && <AlbumsTab   toast={showToast} />}
+              {activeTab === 'clients' && <ClientsTab  toast={showToast} />}
+            </motion.div>
+          </AnimatePresence>
         </div>
-      </div>
+      </main>
 
-      {/* Toast notification */}
       {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
     </div>
   );

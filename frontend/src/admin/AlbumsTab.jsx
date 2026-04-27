@@ -15,14 +15,14 @@ export default function AlbumsTab({ toast }) {
   const fileRefs = useRef({});
 
   const loadAlbums = () =>
-    albumsApi.list().then(setAlbums).catch(() => {});
+    albumsApi.list().then(d => setAlbums(Array.isArray(d) ? d : [])).catch(() => setAlbums([]));
 
   useEffect(() => { loadAlbums(); }, []);
 
   const loadPhotos = async (albumId) => {
     try {
       const data = await albumsApi.listPhotos(albumId);
-      setPhotos(p => ({ ...p, [albumId]: data }));
+      setPhotos(p => ({ ...p, [albumId]: Array.isArray(data) ? data : [] }));
     } catch (e) {
       toast('Failed to load photos', 'error');
     }

@@ -20,8 +20,6 @@ import Designs    from './pages/Designs';
 import AdminLogin     from './admin/AdminLogin';
 import AdminDashboard from './admin/AdminDashboard';
 import ProtectedRoute from './admin/ProtectedRoute';
-import AddWish        from './pages/AddWish';
-
 import AnniversaryIntro from './components/AnniversaryIntro';
 
 function IntroController({ showIntro, setShowIntro }) {

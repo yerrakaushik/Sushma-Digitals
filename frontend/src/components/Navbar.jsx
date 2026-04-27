@@ -18,10 +18,10 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
-  // Pages where the background is naturally dark (videos, gallery, designs)
-  const isDarkThemedPage = ['/videos', '/gallery', '/designs'].includes(location.pathname);
+  // Pages where the background is naturally dark (videos, gallery, designs, services)
+  const isDarkThemedPage = ['/videos', '/gallery', '/designs', '/services'].includes(location.pathname);
   // Pages where we want the navbar to be ultra-clean/transparent initially
-  const isLightThemedPage = ['/', '/services'].includes(location.pathname);
+  const isLightThemedPage = ['/'].includes(location.pathname);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 30);
@@ -40,9 +40,9 @@ export default function Navbar() {
           {/* Logo Section */}
           <Link to="/" className="flex items-center gap-4 group">
             <div className="relative w-16 h-16 flex items-center justify-center transition-all duration-500">
-              <motion.img 
-                src="/SUSHMA9999.png" 
-                alt="Sushma Digitals Logo" 
+              <motion.img
+                src="/SUSHMA9999.png"
+                alt="Sushma Digitals Logo"
                 className="w-full h-full object-contain"
               />
             </div>
@@ -55,23 +55,21 @@ export default function Navbar() {
           </Link>
 
           {/* Navigation - Direct Names + Boxed Inquiry */}
-          <nav className="hidden md:flex items-center gap-10 lg:gap-14">
+          <nav className="hidden md:flex items-center gap-6 lg:gap-8">
             {NAV_LINKS.map(({ to, label }) => {
               const isActive = location.pathname === to;
               return (
                 <Link
                   key={to}
                   to={to}
-                  className={`text-[11px] font-bold uppercase tracking-[0.5em] transition-all duration-300 relative group font-syne ${
-                    isActive 
-                      ? 'text-gold' 
-                      : isDarkThemedPage ? 'text-white/70 hover:text-white' : 'text-navy/60 hover:text-navy'
-                  }`}
+                  className={`text-[11px] font-bold uppercase tracking-[0.5em] transition-all duration-300 relative group font-syne ${isActive
+                    ? 'text-gold'
+                    : isDarkThemedPage ? 'text-white/70 hover:text-white' : 'text-navy/60 hover:text-navy'
+                    }`}
                 >
                   {label}
-                  <span className={`absolute -bottom-2 left-0 h-[1.5px] bg-gold transition-all duration-500 ${
-                    isActive ? 'w-full opacity-100' : 'w-0 opacity-0 group-hover:w-full group-hover:opacity-100'
-                  }`} />
+                  <span className={`absolute -bottom-2 left-0 h-[1.5px] bg-gold transition-all duration-500 ${isActive ? 'w-full opacity-100' : 'w-0 opacity-0 group-hover:w-full group-hover:opacity-100'
+                    }`} />
                 </Link>
               );
             })}
@@ -109,7 +107,7 @@ export default function Navbar() {
       {/* Mobile Dropdown - Clean List */}
       <AnimatePresence>
         {menuOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
@@ -122,9 +120,8 @@ export default function Navbar() {
                   <Link
                     key={to}
                     to={to}
-                    className={`font-display text-4xl uppercase tracking-tighter transition-all duration-300 ${
-                      isActive ? 'text-gold' : 'text-navy/40'
-                    }`}
+                    className={`font-display text-4xl uppercase tracking-tighter transition-all duration-300 ${isActive ? 'text-gold' : 'text-navy/40'
+                      }`}
                     onClick={() => setMenuOpen(false)}
                   >
                     {label}

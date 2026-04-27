@@ -27,7 +27,7 @@ ALLOWED_TYPES = {
 def get_clients():
     try:
         sb = get_client()
-        result = sb.table("clients").select("*").order("name").execute()
+        result = sb.table("client_wishes").select("*").order("client_name").execute()
         return jsonify(result.data or [])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -77,7 +77,7 @@ def update_client(client_id):
 def delete_client(client_id):
     try:
         sb = get_admin_client()
-        sb.table("clients").delete().eq("id", client_id).execute()
+        sb.table("client_wishes").delete().eq("id", client_id).execute()
         return jsonify({"ok": True}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

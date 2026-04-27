@@ -73,16 +73,16 @@ export default function Gallery() {
       </div>
 
       {/* ─── Filter Tabs ─── */}
-      <section className="sticky top-28 z-30 bg-[#FCFAF6]/90 backdrop-blur-md border-b border-gold/10 py-6 shadow-sm">
-        <div className="flex overflow-x-auto justify-center gap-2 px-6 no-scrollbar">
+      <section className="py-12 bg-cream flex justify-center px-4">
+        <div className="bg-white/80 backdrop-blur-md border border-gold/20 p-1.5 rounded-full shadow-lg flex overflow-x-auto no-scrollbar gap-1">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               id={`gallery-filter-${cat.toLowerCase().replace(' ', '-')}`}
               onClick={() => setActiveCategory(cat)}
-              className={`px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${activeCategory === cat
-                  ? 'bg-navy text-gold border border-gold/40 shadow-md'
-                  : 'bg-cream text-navy/60 border border-navy/10 hover:border-gold/30 hover:text-navy'
+              className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300 whitespace-nowrap ${activeCategory === cat
+                  ? 'bg-navy text-gold shadow-md'
+                  : 'text-navy/60 hover:text-navy hover:bg-gold/5'
                 }`}
             >
               {cat}

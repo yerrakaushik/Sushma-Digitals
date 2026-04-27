@@ -164,6 +164,7 @@ function PackageCard({ pkg, serviceTitle }) {
       <p className={`font-serif text-xl font-bold mb-1 ${isPopular ? 'text-white' : 'text-navy'}`}>
         {pkg.name}
       </p>
+      <p className={`text-xs font-bold uppercase tracking-widest mb-4 ${isPopular ? 'text-gold/80' : 'text-gold'}`}>Enquire for Pricing</p>
       <p className={`text-xs mb-6 ${isPopular ? 'text-white/50' : 'text-navy/50'}`}>{pkg.note}</p>
       <ul className="mb-6 space-y-2 flex-1">
         {(pkg.features || []).map((f, i) => (
@@ -184,7 +185,7 @@ function PackageCard({ pkg, serviceTitle }) {
         }`}
       >
         <MessageCircle className="w-4 h-4" />
-        Get a Quote
+        Request Quote
       </a>
     </div>
   );
@@ -255,7 +256,7 @@ function PremiumServiceCard({ svc, index }) {
             className="group flex items-center gap-3 bg-navy/5 hover:bg-navy/10 border border-navy/10 hover:border-gold/30 px-6 py-4 rounded-2xl transition-all duration-300"
           >
             <Sparkles className="w-5 h-5 text-gold" />
-            <span className="font-semibold text-navy tracking-wide text-sm">View Packages & Pricing</span>
+            <span className="font-semibold text-navy tracking-wide text-sm">Explore Our Packages</span>
             {showPackages
               ? <ChevronUp className="w-5 h-5 text-navy/40 group-hover:text-gold" />
               : <ChevronDown className="w-5 h-5 text-navy/40 group-hover:text-gold" />}
@@ -280,16 +281,26 @@ export default function Services() {
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    servicesApi.list()
-      .then(grouped => {
+    Promise.all([
+      servicesApi.list(),
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/gallery?category=SERVICE_COVER`).then(r => r.json())
+    ])
+      .then(([grouped, covers]) => {
+        const coverMap = {};
+        (covers || []).forEach(p => {
+          const sid = p.alt.replace('SERVICE_COVER_', '');
+          coverMap[sid] = p.url;
+        });
+
         setServices(prev => prev.map(s => {
           const apiPackages = grouped[s.id];
-          if (!apiPackages) return s;
+          const dynamicCover = coverMap[s.id];
           
-          // Merge local features with DB prices/notes
           return {
             ...s,
+            heroImage: dynamicCover || s.heroImage,
             packages: s.packages.map(p => {
+              if (!apiPackages) return p;
               const apiMatch = apiPackages.find(ap => ap.name === p.name);
               return apiMatch ? { ...p, ...apiMatch } : p;
             })
@@ -301,21 +312,20 @@ export default function Services() {
   }, []);
 
   return (
-    <div className="font-sans bg-[#FCFAF6] min-h-screen text-navy pt-24">
+    <div className="font-sans bg-cream min-h-screen">
       {/* ─── Premium Hero ─── */}
-      <div className="relative py-32 px-6 text-center overflow-hidden">
-        {/* Abstract shapes */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gold/5 rounded-full blur-[120px] pointer-events-none" />
-        
-        <div className="relative z-10 max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full border border-gold/30 bg-gold/5 backdrop-blur-md mb-8">
-            <Sparkles className="w-4 h-4 text-gold" />
-            <span className="text-gold text-xs font-semibold tracking-widest uppercase">Premium Photography Experiences</span>
+      <div className="bg-navy-dark pt-52 pb-24 px-6 text-center relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40rem] h-56 bg-gold/6 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10">
+          <div className="flex items-center justify-center gap-3 mb-5">
+            <span className="block w-10 h-px bg-gold/50" />
+            <p className="text-gold text-xs font-semibold tracking-[0.3em] uppercase">Premium Experiences</p>
+            <span className="block w-10 h-px bg-gold/50" />
           </div>
-          <h1 className="font-serif text-6xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight tracking-tight text-navy">
+          <h1 className="font-serif text-5xl md:text-6xl text-white font-bold mb-4">
             Our <span className="text-gold">Services</span>
           </h1>
-          <p className="text-navy/50 text-lg md:text-xl leading-relaxed max-w-2xl mx-auto font-light">
+          <p className="text-white/45 max-w-xl mx-auto text-base leading-relaxed">
             Crafting timeless visual stories with elegance, artistry, and an unwavering commitment to perfection.
           </p>
         </div>

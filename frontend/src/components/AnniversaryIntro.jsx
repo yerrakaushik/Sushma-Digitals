@@ -5,54 +5,57 @@ import { Float, PerspectiveCamera, Environment, Center } from '@react-three/drei
 
 // A high-quality 3D Camera component built with Three.js primitives
 const ThreeDCamera = () => {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const segs = isMobile ? 12 : 32; // Lower detail for mobile performance
+
   return (
     <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
-      <group rotation={[0.1, 0, 0]}> {/* Points lens directly at user */}
-        {/* Camera Body - Main Block */}
+      <group rotation={[0.1, 0, 0]}>
+        {/* Camera Body */}
         <mesh castShadow>
           <boxGeometry args={[2.2, 1.4, 0.8]} />
           <meshStandardMaterial color="#0a0a0a" roughness={0.2} metalness={0.9} />
         </mesh>
         
-        {/* Top Viewfinder/Flash Housing */}
+        {/* Top Viewfinder */}
         <mesh position={[0, 0.8, 0]}>
           <boxGeometry args={[0.8, 0.4, 0.7]} />
           <meshStandardMaterial color="#080808" metalness={1} />
         </mesh>
 
-        {/* Right Side Grip (User's left when facing) */}
+        {/* Grip */}
         <mesh position={[1.1, -0.1, 0.1]}>
           <boxGeometry args={[0.4, 1.2, 0.9]} />
           <meshStandardMaterial color="#050505" roughness={1} />
         </mesh>
 
-        {/* Lens Mount (Silver Ring) */}
+        {/* Lens Mount */}
         <mesh position={[0, 0, 0.45]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.55, 0.55, 0.1, 32]} />
+          <cylinderGeometry args={[0.55, 0.55, 0.1, segs]} />
           <meshStandardMaterial color="#444" metalness={1} roughness={0.1} />
         </mesh>
 
         {/* Lens Barrel */}
         <mesh position={[0, 0, 0.8]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.5, 0.5, 0.8, 32]} />
+          <cylinderGeometry args={[0.5, 0.5, 0.8, segs]} />
           <meshStandardMaterial color="#0a0a0a" metalness={0.5} roughness={0.3} />
         </mesh>
 
-        {/* Focus Ring (Ribbed texture look) */}
+        {/* Focus Ring */}
         <mesh position={[0, 0, 0.9]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.52, 0.52, 0.2, 32]} />
+          <cylinderGeometry args={[0.52, 0.52, 0.2, segs]} />
           <meshStandardMaterial color="#111" roughness={1} />
         </mesh>
 
         {/* Lens Glass Container */}
         <mesh position={[0, 0, 1.2]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.45, 0.45, 0.05, 32]} />
+          <cylinderGeometry args={[0.45, 0.45, 0.05, segs]} />
           <meshStandardMaterial color="#000" metalness={1} />
         </mesh>
 
-        {/* The "Eye" - Glass Element with reflection */}
+        {/* The "Eye" */}
         <mesh position={[0, 0, 1.22]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.35, 0.35, 0.02, 32]} />
+          <cylinderGeometry args={[0.35, 0.35, 0.02, segs]} />
           <meshStandardMaterial 
             color="#1a1a2e" 
             emissive="#2233ff" 
@@ -63,7 +66,7 @@ const ThreeDCamera = () => {
           />
         </mesh>
 
-        {/* Flash Glass (Top) */}
+        {/* Flash Glass */}
         <mesh position={[0, 0.85, 0.36]}>
           <boxGeometry args={[0.5, 0.2, 0.05]} />
           <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={5} />
@@ -71,13 +74,13 @@ const ThreeDCamera = () => {
 
         {/* Mode Dial */}
         <mesh position={[-0.6, 0.75, 0]} rotation={[0, 0, 0]}>
-          <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
+          <cylinderGeometry args={[0.15, 0.15, 0.1, isMobile ? 8 : 16]} />
           <meshStandardMaterial color="#111" metalness={1} />
         </mesh>
 
-        {/* Shutter Button (Gold) */}
+        {/* Shutter Button */}
         <mesh position={[0.8, 0.7, 0.2]}>
-          <cylinderGeometry args={[0.1, 0.1, 0.1, 16]} />
+          <cylinderGeometry args={[0.1, 0.1, 0.1, isMobile ? 8 : 16]} />
           <meshStandardMaterial color="#C9A84C" metalness={1} roughness={0.1} />
         </mesh>
       </group>
@@ -86,21 +89,8 @@ const ThreeDCamera = () => {
 };
 
 const AnniversaryIntro = ({ onFinish }) => {
-  const [phase, setPhase] = useState('idle'); // idle, counting, capturing, quote, finished
-  const [count, setCount] = useState(5);
+  const [phase, setPhase] = useState('capturing'); // capturing, quote, finished
   const [showConfetti, setShowConfetti] = useState(false);
-
-  // Handle Countdown
-  useEffect(() => {
-    if (phase === 'counting') {
-      if (count > 0) {
-        const timer = setTimeout(() => setCount(count - 1), 1000);
-        return () => clearTimeout(timer);
-      } else {
-        setPhase('capturing');
-      }
-    }
-  }, [count, phase]);
 
   // Handle Capture Sequence
   useEffect(() => {
@@ -108,10 +98,20 @@ const AnniversaryIntro = ({ onFinish }) => {
       const timer = setTimeout(() => {
         setPhase('quote');
         setShowConfetti(true);
-      }, 2500); // Trigger flash and quote
+      }, 3500); // Give time for 3D model to be admired
       return () => clearTimeout(timer);
     }
   }, [phase]);
+
+  // Handle Auto-Finish after Quote
+  useEffect(() => {
+    if (phase === 'quote') {
+      const timer = setTimeout(() => {
+        onFinish();
+      }, 4000); // 4 seconds for quote
+      return () => clearTimeout(timer);
+    }
+  }, [phase, onFinish]);
 
   if (phase === 'finished') return null;
 
@@ -157,81 +157,6 @@ const AnniversaryIntro = ({ onFinish }) => {
       )}
 
       <AnimatePresence mode="wait">
-        {/* PHASE: IDLE - Launch Button */}
-        {phase === 'idle' && (
-          <motion.div
-            key="idle"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
-            className="text-center relative z-10"
-          >
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="mb-12"
-            >
-              <h2 className="text-[#C9A84C] font-syne text-sm tracking-[0.4em] uppercase mb-4">
-                Special Anniversary Presentation
-              </h2>
-              <div className="h-[1px] w-12 bg-[#C9A84C]/30 mx-auto" />
-            </motion.div>
-
-            <motion.button
-              onClick={() => setPhase('counting')}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="group relative px-16 py-8 bg-transparent transition-all duration-500"
-            >
-              <div className="absolute inset-0 border border-[#C9A84C]/20 group-hover:border-[#C9A84C] transition-colors duration-700" />
-              <div className="absolute inset-0 bg-[#C9A84C]/5 scale-x-0 group-hover:scale-x-100 transition-transform duration-700 origin-left" />
-              <span className="relative z-10 text-[#C9A84C] font-display text-6xl tracking-[0.2em] group-hover:text-white transition-colors duration-500">
-                LAUNCH
-              </span>
-              <div className="absolute -inset-4 bg-[#C9A84C]/20 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            </motion.button>
-
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.4 }}
-              transition={{ delay: 1 }}
-              className="mt-12 text-white font-inter uppercase text-[10px] tracking-[0.3em]"
-            >
-              Click to begin the experience
-            </motion.p>
-          </motion.div>
-        )}
-
-        {/* PHASE: COUNTING */}
-        {phase === 'counting' && (
-          <motion.div
-            key="counting"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 1.5, filter: 'blur(20px)' }}
-            className="relative z-10"
-          >
-            <AnimatePresence mode="wait">
-              <motion.h1
-                key={count}
-                initial={{ scale: 0.5, opacity: 0, rotateX: 90 }}
-                animate={{ scale: 1, opacity: 1, rotateX: 0 }}
-                exit={{ scale: 2, opacity: 0, rotateX: -90 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-                className="text-[#C9A84C] font-display text-[18rem] md:text-[25rem] leading-none select-none"
-              >
-                {count}
-              </motion.h1>
-            </AnimatePresence>
-            <motion.div 
-              animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-              className="absolute inset-0 bg-[#C9A84C] rounded-full blur-[120px] -z-10"
-            />
-          </motion.div>
-        )}
-
         {/* PHASE: CAPTURING - 3D Camera Scene */}
         {phase === 'capturing' && (
           <motion.div
@@ -241,22 +166,25 @@ const AnniversaryIntro = ({ onFinish }) => {
             className="absolute inset-0 w-full h-full"
           >
             <Canvas 
-              shadows={window.innerWidth > 768} 
-              dpr={window.innerWidth > 768 ? [1, 2] : 1}
-              gl={{ antialias: window.innerWidth > 768 }}
+              shadows={false} 
+              dpr={typeof window !== 'undefined' && window.innerWidth < 768 ? 1 : [1, 2]}
+              gl={{ 
+                antialias: typeof window !== 'undefined' && window.innerWidth >= 768,
+                powerPreference: "high-performance",
+                alpha: true
+              }}
             >
               <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={50} />
-              <ambientLight intensity={0.5} />
+              <ambientLight intensity={0.8} />
               <spotLight 
                 position={[10, 10, 10]} 
                 angle={0.15} 
                 penumbra={1} 
-                intensity={window.innerWidth > 768 ? 2 : 1.5} 
-                castShadow={window.innerWidth > 768} 
+                intensity={1.5} 
               />
               <pointLight position={[-10, -10, -10]} intensity={1} />
               {/* Front Light to see the lens */}
-              <directionalLight position={[0, 0, 5]} intensity={1.5} />
+              <directionalLight position={[0, 0, 5]} intensity={1.2} />
               
               <Center scale={window.innerWidth > 768 ? 1 : 0.8}>
                 <ThreeDCamera />
@@ -280,7 +208,7 @@ const AnniversaryIntro = ({ onFinish }) => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: [0, 1, 1, 0] }}
-              transition={{ times: [0, 0.1, 0.2, 1], duration: 0.6, delay: 2.2 }}
+              transition={{ times: [0, 0.1, 0.2, 1], duration: 0.6, delay: 3.2 }}
               className="absolute inset-0 bg-white z-[10010]"
             />
           </motion.div>
@@ -307,16 +235,14 @@ const AnniversaryIntro = ({ onFinish }) => {
               
               <div className="h-[1px] w-24 bg-[#C9A84C]/50 mx-auto mb-12" />
 
-              <motion.button
-                onClick={onFinish}
+              <motion.p
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 2.5 }}
-                whileHover={{ letterSpacing: '0.8em', color: '#fff' }}
-                className="text-[#C9A84C] font-syne font-bold tracking-[0.5em] uppercase text-sm border border-[#C9A84C]/30 px-8 py-4 hover:border-white transition-all duration-500"
+                animate={{ opacity: 0.4 }}
+                transition={{ delay: 1 }}
+                className="text-white font-inter uppercase text-[10px] tracking-[0.3em]"
               >
-                Enter the Gallery
-              </motion.button>
+                Entering Legacy...
+              </motion.p>
             </motion.div>
             <div className="absolute inset-0 bg-radial-gradient from-[#C9A84C]/5 to-transparent -z-10" />
           </motion.div>

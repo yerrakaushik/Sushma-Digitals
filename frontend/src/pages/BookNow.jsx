@@ -90,7 +90,7 @@ export default function BookNow() {
 
           {/* ─── Quick Message Buttons ─── */}
           <div className="rounded-2xl bg-white border border-gold/20 p-8">
-            <h3 className="font-serif text-xl text-navy font-semibold mb-2">Quick Enquiry</h3>
+            <h3 className="font-serif text-xl text-navy font-semibold mb-2">Quick Inquiry</h3>
             <p className="text-navy/45 text-sm mb-6">Choose your service and we'll pre-fill the message for you.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {QUICK_MSGS.map(({ label, msg }) => (

@@ -53,8 +53,8 @@ def get_services():
 
 @services_bp.route("/api/admin/services/<service_id>/<package_name>", methods=["PUT"])
 @require_admin
-def update_price(service_id, package_name):
-    """Update price/note for a specific service + package combination."""
+def update_price_legacy(service_id, package_name):
+    """Update price/note for a specific service + package combination (Legacy name-based)."""
     body = request.get_json() or {}
     allowed = ("price", "note")
     updates = {k: v for k, v in body.items() if k in allowed}
@@ -70,6 +70,66 @@ def update_price(service_id, package_name):
             .execute()
         )
         return jsonify(result.data[0] if result.data else {}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@services_bp.route("/api/admin/services/<int:pkg_id>", methods=["PUT"])
+@require_admin
+def update_service_by_id(pkg_id):
+    """Modern ID-based update for service packages."""
+    body = request.get_json() or {}
+    allowed = ("name", "price", "note", "sort_order")
+    updates = {k: v for k, v in body.items() if k in allowed}
+    if not updates:
+        return jsonify({"error": "No valid fields to update"}), 400
+    try:
+        sb = get_admin_client()
+        result = sb.table("service_packages").update(updates).eq("id", pkg_id).execute()
+        return jsonify(result.data[0] if result.data else {}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@services_bp.route("/api/admin/services", methods=["POST"])
+@require_admin
+def add_service_package():
+    """Add a new service category or a new package to an existing category."""
+    body = request.get_json() or {}
+    required = ("service_id", "name", "price")
+    if not all(k in body for k in required):
+        return jsonify({"error": f"Missing required fields: {required}"}), 400
+    
+    try:
+        sb = get_admin_client()
+        # Check if we should insert multiple or single
+        # For simplicity, we just insert one row
+        row = {
+            "service_id": body["service_id"],
+            "name": body["name"],
+            "price": body["price"],
+            "note": body.get("note", ""),
+            "sort_order": body.get("sort_order", 0)
+        }
+        result = sb.table("service_packages").insert(row).execute()
+        return jsonify(result.data[0] if result.data else {}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@services_bp.route("/api/admin/services/<service_id>", methods=["DELETE"])
+@require_admin
+def delete_service(service_id):
+    """Delete an entire service category or a specific package if name is provided in query."""
+    package_name = request.args.get("package")
+    try:
+        sb = get_admin_client()
+        query = sb.table("service_packages").delete().eq("service_id", service_id)
+        if package_name:
+            query = query.eq("name", package_name)
+        
+        result = query.execute()
+        return jsonify({"ok": True, "deleted": len(result.data or [])}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

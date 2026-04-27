@@ -45,14 +45,13 @@ def upload_hero_video():
         return jsonify({"error": "Only .mp4, .webm, .mov are allowed"}), 400
 
     filename = f"hero-{uuid.uuid4()}{ext}"
-    file_bytes = file.read()
 
     try:
         sb = get_admin_client()
-        # Upload to Supabase Storage
+        # Upload to Supabase Storage - Pass file object directly for better memory efficiency
         upload_response = sb.storage.from_(BUCKET).upload(
             path=filename,
-            file=file_bytes,
+            file=file,
             file_options={"content-type": file.content_type or "video/mp4"},
         )
         
@@ -81,6 +80,54 @@ def clear_hero_video():
     try:
         sb = get_admin_client()
         sb.table("hero_settings").upsert({"id": 1, "video_url": None}).execute()
+        return jsonify({"ok": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@hero_bp.route("/api/hero/slideshow", methods=["GET"])
+def get_hero_slideshow():
+    """Returns the list of images for the hero slideshow."""
+    try:
+        sb = get_client()
+        result = sb.table("hero_slideshow").select("*").order("created_at").execute()
+        return jsonify(result.data or [])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 200
+
+
+@hero_bp.route("/api/admin/hero/slideshow", methods=["POST"])
+@require_admin
+def upload_slideshow_image():
+    """Upload a new image for the hero slideshow."""
+    if "photo" not in request.files:
+        return jsonify({"error": "No photo provided"}), 400
+
+    file = request.files["photo"]
+    filename = f"slideshow-{uuid.uuid4()}{os.path.splitext(file.filename)[1]}"
+    file_bytes = file.read()
+
+    try:
+        sb = get_admin_client()
+        sb.storage.from_("hero-slideshow").upload(
+            path=filename,
+            file=file_bytes,
+            file_options={"content-type": file.content_type or "image/jpeg"},
+        )
+        public_url = sb.storage.from_("hero-slideshow").get_public_url(filename)
+        sb.table("hero_slideshow").insert({"url": public_url}).execute()
+        return jsonify({"url": public_url}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@hero_bp.route("/api/admin/hero/slideshow/<id>", methods=["DELETE"])
+@require_admin
+def delete_slideshow_image(id):
+    """Remove an image from the hero slideshow."""
+    try:
+        sb = get_admin_client()
+        sb.table("hero_slideshow").delete().eq("id", id).execute()
         return jsonify({"ok": True}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

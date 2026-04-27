@@ -76,16 +76,6 @@ export default function Hero() {
 
       </div>
 
-      {/* Scroll Indicator - Anchored to screen bottom, not text container */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.5, duration: 1 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 md:gap-4 z-30"
-      >
-        <span className="text-navy/30 text-[9px] md:text-[10px] font-bold uppercase tracking-[0.4em]">Scroll to Discover</span>
-        <div className="w-px h-10 md:h-16 bg-gradient-to-b from-gold via-gold/50 to-transparent" />
-      </motion.div>
 
       {/* Decorative Floating Stats */}
       <motion.div 

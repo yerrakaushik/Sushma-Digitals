@@ -82,8 +82,8 @@ function HorizontalGallery() {
   });
 
   const smoothProgress = useSpring(scrollYProgress, {
-    stiffness: 100,
-    damping: 30,
+    stiffness: 50,
+    damping: 25,
     restDelta: 0.001
   });
 
@@ -108,6 +108,7 @@ function HorizontalGallery() {
               <img 
                 src={work.image} 
                 alt={work.title} 
+                loading="lazy"
                 className={`h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105 ${
                   work.image === '/LUCK9497.JPG' ? 'object-bottom' : 'object-center'
                 }`}
@@ -146,6 +147,7 @@ function EditorialSection() {
           >
             <img 
               src="/GAN00022.JPG" 
+              loading="lazy"
               className="w-full h-full object-cover object-[70%_center]"
               alt="Artistic Focus"
             />
