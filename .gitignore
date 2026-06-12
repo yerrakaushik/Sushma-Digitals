@@ -37,3 +37,16 @@ frontend/public/Hero section/
 scratch/
 *.mp4_original
 *.log
+
+# IDE & Agent files
+.vscode/
+.agent/
+
+# Build artifacts & misc
+blobs/
+manifests/
+package-lock.json
+
+# WhatsApp service session
+whatsapp-service/auth_info/
+whatsapp-service/.wwebjs_auth/

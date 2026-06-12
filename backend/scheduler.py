@@ -19,7 +19,7 @@ def check_and_notify():
     Sends a CallMeBot notification to admin for each.
     Does NOT auto-mark as sent — admin does that after sending.
     """
-    from services.supabase_client import get_client
+    from services.supabase_client import get_admin_client
     from services.callmebot import send_whatsapp_notification
 
     today = date.today()
@@ -27,7 +27,7 @@ def check_and_notify():
     log.info(f"[Scheduler] Checking wishes for {today} (month={month}, day={day})")
 
     try:
-        sb = get_client()
+        sb = get_admin_client()
         result = (
             sb.table("client_wishes")
             .select("*")
@@ -49,9 +49,38 @@ def check_and_notify():
 
     for wish in todays_wishes:
         try:
-            send_whatsapp_notification(wish)
+            send_wish_via_whatsapp(wish)
         except Exception as e:
             log.error(f"[Scheduler] Error notifying for wish {wish.get('id')}: {e}")
+
+def send_wish_via_whatsapp(wish):
+    import requests
+    import os
+    try:
+        response = requests.post(
+            f"{os.getenv('WHATSAPP_SERVICE_URL', 'http://localhost:3001')}/send",
+            json={
+                "whatsapp_number": wish["whatsapp_number"],
+                "wish_message": wish["wish_message"],
+                "media_url": wish.get("media_url"),
+                "media_type": wish.get("media_type"),
+                "client_name": wish["client_name"]
+            },
+            headers={
+                "x-api-key": os.getenv("WHATSAPP_SERVICE_SECRET", "sushma_digitals_secret_12345"),
+                "Content-Type": "application/json"
+            },
+            timeout=30
+        )
+        if response.status_code == 200:
+            # Mark wish as sent in Supabase
+            from services.supabase_client import get_admin_client
+            get_admin_client().table("client_wishes").update({"is_sent": True}).eq("id", wish["id"]).execute()
+            log.info(f"Wish sent to {wish['client_name']}")
+        else:
+            log.error(f"Failed to send wish: {response.text}")
+    except Exception as e:
+        log.error(f"WhatsApp service error: {str(e)}")
 
 
 def _matches_today(wish_date_str: str, month: int, day: int) -> bool:

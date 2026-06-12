@@ -26,7 +26,8 @@ ALLOWED_TYPES = {
 @require_admin
 def get_clients():
     try:
-        sb = get_client()
+        from services.supabase_client import get_admin_client
+        sb = get_admin_client()
         result = sb.table("client_wishes").select("*").order("client_name").execute()
         return jsonify(result.data or [])
     except Exception as e:

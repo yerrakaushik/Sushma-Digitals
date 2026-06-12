@@ -94,9 +94,27 @@ def _upload_to_cloudinary(file) -> tuple[str, str, str]:
 
 # ─── Routes ──────────────────────────────────────────────────────────────────
 
-@wishes_bp.route("/api/wishes", methods=["POST"])
+@wishes_bp.route("/api/wishes", methods=["GET", "POST", "OPTIONS"])
 @require_admin
-def create_wish():
+def wishes_handler():
+    if request.method == "OPTIONS":
+        return jsonify({"ok": True}), 200
+        
+    if request.method == "GET":
+        status = request.args.get("status")  # "pending" | "sent"
+        try:
+            sb = get_admin_client()
+            q  = sb.table("client_wishes").select("*").order("wish_date")
+            if status == "pending":
+                q = q.eq("is_sent", False)
+            elif status == "sent":
+                q = q.eq("is_sent", True)
+            result = q.execute()
+            return jsonify(result.data or [])
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    # Handle POST
     client_name  = request.form.get("client_name", "").strip()
     spouse_name  = request.form.get("spouse_name", "").strip()
     wa_number    = request.form.get("whatsapp_number", "").strip()
@@ -146,29 +164,12 @@ def create_wish():
         return jsonify({"error": str(e)}), 500
 
 
-@wishes_bp.route("/api/wishes", methods=["GET"])
-@require_admin
-def list_wishes():
-    status = request.args.get("status")  # "pending" | "sent"
-    try:
-        sb = get_client()
-        q  = sb.table("client_wishes").select("*").order("wish_date")
-        if status == "pending":
-            q = q.eq("is_sent", False)
-        elif status == "sent":
-            q = q.eq("is_sent", True)
-        result = q.execute()
-        return jsonify(result.data or [])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
 @wishes_bp.route("/api/wishes/today", methods=["GET"])
 @require_admin
 def today_wishes():
     today = date.today()
     try:
-        sb = get_client()
+        sb = get_admin_client()
         result = sb.table("client_wishes").select("*").eq("is_sent", False).execute()
         wishes = [
             w for w in (result.data or [])
@@ -185,7 +186,7 @@ def upcoming_wishes():
     today = date.today()
     end   = today + timedelta(days=7)
     try:
-        sb = get_client()
+        sb = get_admin_client()
         result = sb.table("client_wishes").select("*").eq("is_sent", False).execute()
         wishes = [
             w for w in (result.data or [])

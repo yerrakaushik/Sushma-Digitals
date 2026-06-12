@@ -592,8 +592,11 @@ function ServicesTab({ toast }) {
                     <p className="text-[10px] font-bold text-gold uppercase tracking-[0.3em] mt-1">Service Category</p>
                  </div>
               </div>
-              <button onClick={() => handleDeleteCategory(sid)} className="px-6 py-3 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-full text-[10px] font-bold uppercase tracking-widest transition-all">
-                 Delete Entire Category
+              <button onClick={() => navigate('/admin/whatsapp')} className="flex items-center gap-2 px-6 py-2 border border-gold text-gold hover:bg-gold/10 rounded-full font-bold text-[10px] uppercase tracking-widest transition-all">
+                <Phone className="w-3 h-3" /> WhatsApp Status
+              </button>
+              <button onClick={handleLogout} className="flex items-center gap-2 px-6 py-2 border border-red-500/20 text-red-500 hover:bg-red-50 rounded-full font-bold text-[10px] uppercase tracking-widest transition-all">
+                <LogOut className="w-3 h-3" /> Logout
               </button>
             </div>
 
@@ -754,10 +757,15 @@ function ClientsTab({ toast }) {
     if (!form.client_name || !form.whatsapp_number) return toast('Name and Phone are required', 'error');
     setAdding(true);
     try {
+      const fd = new FormData();
+      fd.append('client_name', form.client_name);
+      fd.append('whatsapp_number', form.whatsapp_number);
+      if (form.wish_date) fd.append('wish_date', form.wish_date);
+
       const res = await fetch(`${API_BASE}/api/wishes`, {
         method: 'POST',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        headers: authHeaders(),
+        body: fd
       });
       if (res.ok) {
         toast('Client registered successfully!', 'success');
@@ -954,6 +962,12 @@ export default function AdminDashboard() {
             <p className="text-xs text-navy/40 font-bold uppercase tracking-widest mt-1">Management Portal v2.0</p>
           </div>
           <div className="flex items-center gap-5">
+            <button 
+              onClick={() => navigate('/admin/whatsapp')}
+              className="px-6 py-2.5 bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 rounded-full font-bold text-[10px] uppercase tracking-widest flex items-center gap-2 transition-colors mr-2"
+            >
+              <Phone className="w-4 h-4" /> WhatsApp Status
+            </button>
             <div className="hidden sm:flex flex-col items-end">
                <span className="text-sm font-bold text-navy">Super Admin</span>
                <span className="text-[10px] text-navy/30 uppercase tracking-widest font-bold">Verified Session</span>

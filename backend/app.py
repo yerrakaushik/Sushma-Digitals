@@ -17,6 +17,8 @@ CORS(app, resources={r"/api/*": {"origins": [
     "http://localhost:3000",
     "http://localhost:3001",
     "https://sushmadigitals.vercel.app",
+    "https://sushmadigitalstudio.in",
+    "https://www.sushmadigitalstudio.in",
     os.environ.get("FRONTEND_URL", "*") # Allow environment-defined URL or fallback to all in prod
 ]}})
 
@@ -66,6 +68,6 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 5000))
     try:
-        app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False)
+        app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
     finally:
         scheduler.shutdown()

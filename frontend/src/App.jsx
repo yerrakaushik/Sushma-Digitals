@@ -19,6 +19,7 @@ import Designs    from './pages/Designs';
 // Admin Pages (outside Navbar/Footer layout)
 import AdminLogin     from './admin/AdminLogin';
 import AdminDashboard from './admin/AdminDashboard';
+import AdminWhatsApp  from './admin/AdminWhatsApp';
 import ProtectedRoute from './admin/ProtectedRoute';
 import AnniversaryIntro from './components/AnniversaryIntro';
 
@@ -60,6 +61,11 @@ function App() {
           <Route path="/admin" element={
             <ProtectedRoute>
               <AdminDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/whatsapp" element={
+            <ProtectedRoute>
+              <AdminWhatsApp />
             </ProtectedRoute>
           } />
           

@@ -59,6 +59,13 @@ CREATE TABLE IF NOT EXISTS client_wishes (
   created_at       TIMESTAMPTZ DEFAULT now()
 );
 
+-- ─── WhatsApp Auth State (Baileys) ───────────────────────────
+CREATE TABLE IF NOT EXISTS wa_auth_state (
+  key         TEXT PRIMARY KEY,
+  data        JSONB NOT NULL,
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+
 -- ─── Design Albums ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS albums (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,6 +91,7 @@ ALTER TABLE gallery_photos   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE youtube_videos   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE client_wishes    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wa_auth_state    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE albums           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE album_photos     ENABLE ROW LEVEL SECURITY;
 

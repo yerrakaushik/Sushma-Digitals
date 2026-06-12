@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: sushma-digitals-backend
+    env: python
+    region: singapore # Adjust region if needed
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && gunicorn app:app --worker-class gevent --bind 0.0.0.0:$PORT --workers 1 --threads 8"
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false
+      - key: CALLMEBOT_PHONE
+        sync: false
+      - key: CALLMEBOT_APIKEY
+        sync: false
+      - key: ADMIN_WHATSAPP
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        value: "https://sushmadigitalstudio.in"
+
+  - type: web
+    name: sushma-digitals-wa
+    env: node
+    region: singapore # Adjust region if needed
+    buildCommand: "cd whatsapp-service && npm install"
+    startCommand: "cd whatsapp-service && node index.js"
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: FLASK_SECRET
+        sync: false
